@@ -1,0 +1,16 @@
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+backend/target/
+ai-service/.venv/
+ai-service/.pytest_cache/
+**/__pycache__/
+*.py[cod]
+.env
+.idea/
+.vscode/
+uploads/
+logs/
+.tools/
+/04*.pdf
+/04*.docx
