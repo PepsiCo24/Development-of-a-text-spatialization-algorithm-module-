@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Connection, DataAnalysis, Document, Fold, MapLocation, Menu as MenuIcon, Opportunity, Setting } from '@element-plus/icons-vue'
+import { Collection, Connection, DataAnalysis, Document, Fold, MapLocation, Menu as MenuIcon, Opportunity, Setting } from '@element-plus/icons-vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -19,6 +19,7 @@ const signOut = () => { auth.logout(); router.push('/login') }
         <router-link to="/documents"><el-icon><Document /></el-icon><span>资料资源池</span><small>Phase 2</small></router-link>
         <router-link to="/parsing"><el-icon><Opportunity /></el-icon><span>智能解析</span><small>Phase 3</small></router-link>
         <router-link to="/entities"><el-icon><Connection /></el-icon><span>实体识别</span><small>Phase 4</small></router-link>
+        <router-link to="/knowledge"><el-icon><Collection /></el-icon><span>知识抽取</span><small>Phase 5</small></router-link>
         <a class="is-disabled"><el-icon><MapLocation /></el-icon><span>空间地图</span><small>Phase 6</small></a>
         <a class="is-disabled"><el-icon><Setting /></el-icon><span>系统管理</span><small>Phase 8</small></a>
       </nav>

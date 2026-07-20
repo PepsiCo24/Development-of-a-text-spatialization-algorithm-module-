@@ -21,6 +21,9 @@ public class GeologicalEntity {
     private Integer sourceEnd;
     private String provider;
     private String model;
+    private Long dictionaryId;
+    private String standardName;
+    private String normalizationStatus;
     private OffsetDateTime createTime;
 
     public Long getId() { return id; }
@@ -47,6 +50,12 @@ public class GeologicalEntity {
     public void setProvider(String provider) { this.provider = provider; }
     public String getModel() { return model; }
     public void setModel(String model) { this.model = model; }
+    public Long getDictionaryId() { return dictionaryId; }
+    public void setDictionaryId(Long dictionaryId) { this.dictionaryId = dictionaryId; }
+    public String getStandardName() { return standardName; }
+    public void setStandardName(String standardName) { this.standardName = standardName; }
+    public String getNormalizationStatus() { return normalizationStatus; }
+    public void setNormalizationStatus(String normalizationStatus) { this.normalizationStatus = normalizationStatus; }
     public OffsetDateTime getCreateTime() { return createTime; }
     public void setCreateTime(OffsetDateTime createTime) { this.createTime = createTime; }
 }

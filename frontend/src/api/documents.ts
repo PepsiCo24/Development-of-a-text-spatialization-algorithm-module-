@@ -21,6 +21,13 @@ export interface GeologicalDocument {
   entityError?: string
   entityCount?: number
   entityExtractedAt?: string
+  knowledgeStatus?: 'PENDING' | 'EXTRACTING' | 'COMPLETED' | 'FAILED'
+  knowledgeProgress?: number
+  knowledgeError?: string
+  attributeCount?: number
+  relationCount?: number
+  normalizedCount?: number
+  knowledgeExtractedAt?: string
   fileSize: number
   createTime: string
   updateTime: string
@@ -78,6 +85,9 @@ export interface GeologicalEntity {
   sourceEnd?: number
   provider: 'deepseek' | 'qwen'
   model: string
+  dictionaryId?: number
+  standardName?: string
+  normalizationStatus?: 'PENDING' | 'EXACT' | 'ALIAS' | 'UNMATCHED'
   createTime: string
 }
 
@@ -89,6 +99,15 @@ export interface EntityExtractionStatus {
   entityCount: number
   extractedAt?: string
 }
+
+export type AttributeType = 'AGE' | 'THICKNESS' | 'SCALE' | 'GRADE' | 'LITHOLOGY'
+export type RelationType = 'LOCATED_IN' | 'OCCURS_IN' | 'INTRUDES' | 'CONTACTS' | 'CONTROLS' | 'CONTAINS'
+export interface EntityAttribute { id:number; documentId:number; entityId:number; attributeType:AttributeType; originalValue:string; confidence:number; sourceText:string; page:number; provider:string; model:string }
+export interface EntityRelation { id:number; documentId:number; sourceEntityId:number; targetEntityId:number; relationType:RelationType; confidence:number; sourceText:string; page:number; provider:string; model:string }
+export interface KnowledgeStatus { documentId:number; status:'PENDING'|'EXTRACTING'|'COMPLETED'|'FAILED'; progress:number; errorMessage?:string; attributeCount:number; relationCount:number; normalizedCount:number; extractedAt?:string }
+export interface KnowledgeResult { entities:GeologicalEntity[]; attributes:EntityAttribute[]; relations:EntityRelation[] }
+export interface GeologicalDictionary { id:number; termType:string; standardName:string; aliases?:string; description?:string; enabled:boolean; createTime:string; updateTime:string }
+export type DictionaryInput = Pick<GeologicalDictionary,'termType'|'standardName'> & Partial<Pick<GeologicalDictionary,'aliases'|'description'|'enabled'>>
 
 export interface DocumentFilters {
   query?: string
@@ -167,3 +186,11 @@ export async function getDocumentEntities(id: number): Promise<GeologicalEntity[
   const response = await http.get(`/documents/${id}/entities`)
   return response.data.data
 }
+
+export async function startKnowledgeExtraction(id:number, provider:'deepseek'|'qwen'):Promise<KnowledgeStatus>{const response=await http.post(`/documents/${id}/knowledge/extract`,{provider});return response.data.data}
+export async function getKnowledgeStatus(id:number):Promise<KnowledgeStatus>{const response=await http.get(`/documents/${id}/knowledge/status`);return response.data.data}
+export async function getKnowledgeResult(id:number):Promise<KnowledgeResult>{const response=await http.get(`/documents/${id}/knowledge`);return response.data.data}
+export async function listDictionary(params:{query?:string;type?:string}={}):Promise<GeologicalDictionary[]>{const response=await http.get('/dictionary',{params});return response.data.data}
+export async function createDictionary(data:DictionaryInput):Promise<GeologicalDictionary>{const response=await http.post('/dictionary',data);return response.data.data}
+export async function updateDictionary(id:number,data:DictionaryInput):Promise<GeologicalDictionary>{const response=await http.put(`/dictionary/${id}`,data);return response.data.data}
+export async function deleteDictionary(id:number):Promise<void>{await http.delete(`/dictionary/${id}`)}

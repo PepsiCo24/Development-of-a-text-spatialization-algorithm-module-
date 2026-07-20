@@ -54,6 +54,13 @@ public class DocumentParsingService {
         document.setEntityError(null);
         document.setEntityCount(0);
         document.setEntityExtractedAt(null);
+        document.setKnowledgeStatus("PENDING");
+        document.setKnowledgeProgress(0);
+        document.setKnowledgeError(null);
+        document.setAttributeCount(0);
+        document.setRelationCount(0);
+        document.setNormalizedCount(0);
+        document.setKnowledgeExtractedAt(null);
         updateState(document, "PARSING", 5, null);
         executor.execute(() -> parse(documentId));
         return status(documentId);

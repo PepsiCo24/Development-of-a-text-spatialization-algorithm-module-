@@ -12,6 +12,7 @@ import com.cug.geotext.entity.GeologicalEntity;
 import com.cug.geotext.service.DocumentService;
 import com.cug.geotext.service.DocumentParsingService;
 import com.cug.geotext.service.EntityExtractionService;
+import com.cug.geotext.service.KnowledgeExtractionService;
 import jakarta.validation.Valid;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -42,10 +43,12 @@ public class DocumentController {
     private final DocumentService documentService;
     private final DocumentParsingService parsingService;
     private final EntityExtractionService extractionService;
-    public DocumentController(DocumentService documentService, DocumentParsingService parsingService, EntityExtractionService extractionService) {
+    private final KnowledgeExtractionService knowledgeService;
+    public DocumentController(DocumentService documentService, DocumentParsingService parsingService, EntityExtractionService extractionService, KnowledgeExtractionService knowledgeService) {
         this.documentService = documentService;
         this.parsingService = parsingService;
         this.extractionService = extractionService;
+        this.knowledgeService = knowledgeService;
     }
 
     @GetMapping
@@ -112,6 +115,13 @@ public class DocumentController {
     public ApiResponse<List<GeologicalEntity>> entities(@PathVariable long id) {
         return ApiResponse.ok(extractionService.entities(id));
     }
+
+    @PostMapping("/{id}/knowledge/extract")
+    public ResponseEntity<ApiResponse<KnowledgeExtractionService.KnowledgeStatus>> extractKnowledge(@PathVariable long id,@Valid @RequestBody EntityExtractionRequest request){
+        return ResponseEntity.accepted().body(ApiResponse.ok(knowledgeService.start(id,request.provider())));
+    }
+    @GetMapping("/{id}/knowledge/status") public ApiResponse<KnowledgeExtractionService.KnowledgeStatus> knowledgeStatus(@PathVariable long id){return ApiResponse.ok(knowledgeService.status(id));}
+    @GetMapping("/{id}/knowledge") public ApiResponse<KnowledgeExtractionService.KnowledgeResult> knowledge(@PathVariable long id){return ApiResponse.ok(knowledgeService.result(id));}
 
     @GetMapping("/{id}/preview")
     public ResponseEntity<Resource> preview(@PathVariable long id, @RequestParam(defaultValue = "inline") String disposition) {

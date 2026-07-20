@@ -41,7 +41,7 @@ class GeologicalEntityExtractor:
         self.client = client or httpx.Client(timeout=self.settings.llm_timeout_seconds)
 
     def extract(self, chunks: list[EntityChunk], provider_name: str | None = None) -> tuple[ProviderConfig, list[ExtractedEntity]]:
-        provider = self._provider(provider_name or self.settings.llm_default_provider)
+        provider = self.resolve_provider(provider_name or self.settings.llm_default_provider)
         entities: list[ExtractedEntity] = []
         for chunk in chunks:
             payload = self._call(provider, chunk)
@@ -53,7 +53,7 @@ class GeologicalEntityExtractor:
                 unique[key] = entity
         return provider, list(unique.values())
 
-    def _provider(self, name: str) -> ProviderConfig:
+    def resolve_provider(self, name: str) -> ProviderConfig:
         normalized = name.strip().lower()
         if normalized == "deepseek":
             values = (self.settings.deepseek_base_url, self.settings.deepseek_api_key, self.settings.deepseek_model)
@@ -83,12 +83,12 @@ class GeologicalEntityExtractor:
             )
             response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
-            return self._decode_json(content)
+            return self.decode_json(content)
         except (httpx.HTTPError, KeyError, IndexError, TypeError, json.JSONDecodeError) as exception:
             raise LlmExtractionError(f"{provider.name} 实体识别调用失败: {exception}") from exception
 
     @staticmethod
-    def _decode_json(content: str) -> Any:
+    def decode_json(content: str) -> Any:
         cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.IGNORECASE)
         return json.loads(cleaned)
 

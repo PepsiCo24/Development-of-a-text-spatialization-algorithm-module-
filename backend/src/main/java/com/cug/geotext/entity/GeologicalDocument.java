@@ -31,6 +31,13 @@ public class GeologicalDocument {
     private String entityError;
     private Integer entityCount;
     private OffsetDateTime entityExtractedAt;
+    private String knowledgeStatus;
+    private Integer knowledgeProgress;
+    private String knowledgeError;
+    private Integer attributeCount;
+    private Integer relationCount;
+    private Integer normalizedCount;
+    private OffsetDateTime knowledgeExtractedAt;
     private Long fileSize;
     @JsonIgnore
     private Long createdBy;
@@ -79,6 +86,20 @@ public class GeologicalDocument {
     public void setEntityCount(Integer entityCount) { this.entityCount = entityCount; }
     public OffsetDateTime getEntityExtractedAt() { return entityExtractedAt; }
     public void setEntityExtractedAt(OffsetDateTime entityExtractedAt) { this.entityExtractedAt = entityExtractedAt; }
+    public String getKnowledgeStatus() { return knowledgeStatus; }
+    public void setKnowledgeStatus(String knowledgeStatus) { this.knowledgeStatus = knowledgeStatus; }
+    public Integer getKnowledgeProgress() { return knowledgeProgress; }
+    public void setKnowledgeProgress(Integer knowledgeProgress) { this.knowledgeProgress = knowledgeProgress; }
+    public String getKnowledgeError() { return knowledgeError; }
+    public void setKnowledgeError(String knowledgeError) { this.knowledgeError = knowledgeError; }
+    public Integer getAttributeCount() { return attributeCount; }
+    public void setAttributeCount(Integer attributeCount) { this.attributeCount = attributeCount; }
+    public Integer getRelationCount() { return relationCount; }
+    public void setRelationCount(Integer relationCount) { this.relationCount = relationCount; }
+    public Integer getNormalizedCount() { return normalizedCount; }
+    public void setNormalizedCount(Integer normalizedCount) { this.normalizedCount = normalizedCount; }
+    public OffsetDateTime getKnowledgeExtractedAt() { return knowledgeExtractedAt; }
+    public void setKnowledgeExtractedAt(OffsetDateTime knowledgeExtractedAt) { this.knowledgeExtractedAt = knowledgeExtractedAt; }
     public Long getFileSize() { return fileSize; }
     public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
     public Long getCreatedBy() { return createdBy; }
