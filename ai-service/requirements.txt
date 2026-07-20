@@ -10,3 +10,5 @@ Pillow>=11,<13
 numpy>=2,<3
 paddleocr>=3.5,<4
 paddlepaddle>=3.2,<4
+sentence-transformers>=3.3,<6
+neo4j>=5.27,<7

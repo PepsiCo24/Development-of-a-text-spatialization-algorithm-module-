@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-Phase 1–6 已实现：
+Phase 1–7 已实现：
 
 - Vue 3 + TypeScript + Vite 前端，包含登录、路由守卫、响应式布局和系统工作台
 - Spring Boot 3 + Java 17 后端，包含 PostgreSQL、MyBatis Plus、JWT 登录、Swagger、健康检查和统一异常响应
@@ -34,8 +34,12 @@ Phase 1–6 已实现：
 - `spatial_object` 表、PostGIS Geometry(4326) 持久化、空间索引及 V006 数据库迁移脚本
 - OpenLayers 双底图、图层控制、缩放、图例、比例尺、坐标显示、距离与面积量算
 - `/map` 空间化工作台，以及地图对象与来源资料、页码、原文证据的双向联动
+- Neo4j 地层、岩体、构造、矿体、矿种和地区节点，以及位于、包含、控制和侵入关系
+- 节点查询、1–3 层关系展开、最短路径查询和 ECharts Graph 交互可视化
+- `BAAI/bge-m3` 文档块 Embedding 与 Qdrant 向量索引
+- “向量检索 → Neo4j 上下文 → DeepSeek/Qwen”证据约束问答，回答包含实体、空间位置、资料和来源段落
 
-后续将严格按 Phase 7–8 实现知识图谱、智能问答和成果导出。
+后续将按 Phase 8 完成成果导出、系统管理、模型配置、Demo 数据和最终发布。
 
 ## 系统架构
 
@@ -47,7 +51,7 @@ Browser (Vue 3 / Element Plus / OpenLayers / ECharts)
 Spring Boot :8080          FastAPI :8000
 业务接口 / 鉴权 / 数据       OCR / LLM / Embedding
         │                       │
-PostgreSQL / Redis       Qdrant / Neo4j（后续阶段）
+PostgreSQL / PostGIS      Qdrant / Neo4j
 ```
 
 目录结构：
@@ -67,6 +71,8 @@ scripts/        本地启动脚本
 - Java 17 与 Maven 3.9+
 - Python 3.11+
 - PostgreSQL 14+ 与 PostGIS 3+
+- Neo4j 5+
+- Qdrant 1.12+
 
 本项目按要求不使用 Docker。
 
@@ -90,6 +96,7 @@ psql -U postgres -d geotext -f database/migrations/V003__intelligent_document_pa
 psql -U postgres -d geotext -f database/migrations/V004__geological_entity_recognition.sql
 psql -U postgres -d geotext -f database/migrations/V005__attributes_relations_dictionary.sql
 psql -U postgres -d geotext -f database/migrations/V006__text_spatialization_gis.sql
+psql -U postgres -d geotext -f database/migrations/V007__knowledge_graph_and_rag.sql
 ```
 
 上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOC/DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。
@@ -128,10 +135,24 @@ $env:QWEN_API_KEY="sk-..."
 
 空间化默认通过 `GEOCODING_BASE_URL` 调用地名解析服务，并使用 `GEOCODING_USER_AGENT` 标识请求；可设置 `GEOCODING_ENABLED=false` 禁用外部地名解析。文本中明确给出的坐标和几何优先使用，不会用地名解析结果覆盖。
 
+### 4. 启动 Neo4j 与 Qdrant
+
+本项目不使用 Docker。安装 Neo4j Community 后设置初始密码并启动 `neo4j console`；下载 Qdrant 对应平台的发行包后运行 `qdrant`（Windows 为 `qdrant.exe`）。默认连接为：
+
+```powershell
+$env:NEO4J_URI="bolt://localhost:7687"
+$env:NEO4J_USERNAME="neo4j"
+$env:NEO4J_PASSWORD="your-password"
+$env:QDRANT_URL="http://localhost:6333"
+$env:EMBEDDING_MODEL="BAAI/bge-m3"
+```
+
+首次构建图谱时 AI 服务会下载 BGE-M3 模型、创建 `geotext_chunks` 向量集合，并把资料实体/关系同步至 Neo4j。`QDRANT_API_KEY`、`QDRANT_COLLECTION` 和 `NEO4J_DATABASE` 可按部署环境覆盖。
+
 - 健康检查：`http://localhost:8000/api/v1/health`
 - OpenAPI 文档：`http://localhost:8000/docs`
 
-### 4. 启动前端
+### 5. 启动前端
 
 ```powershell
 cd frontend
@@ -169,4 +190,4 @@ pytest
 
 详细接口以 Spring Boot Swagger 和 FastAPI `/docs` 为准。
 
-Phase 1–6 接口说明见 [`docs/api.md`](docs/api.md)。
+Phase 1–7 接口说明见 [`docs/api.md`](docs/api.md)。

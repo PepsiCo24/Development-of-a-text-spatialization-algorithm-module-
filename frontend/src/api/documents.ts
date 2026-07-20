@@ -34,6 +34,13 @@ export interface GeologicalDocument {
   spatialWarnings?: string
   spatialObjectCount?: number
   spatialExtractedAt?: string
+  graphStatus?: 'PENDING' | 'SYNCING' | 'COMPLETED' | 'FAILED'
+  graphProgress?: number
+  graphError?: string
+  graphNodeCount?: number
+  graphRelationCount?: number
+  vectorChunkCount?: number
+  graphSyncedAt?: string
   fileSize: number
   createTime: string
   updateTime: string

@@ -185,3 +185,33 @@ AI 服务内部接口。属性类型限制为 `AGE`、`THICKNESS`、`SCALE`、`G
 ### `POST /api/v1/spatial/extract`
 
 AI 服务内部接口。空间对象类型限制为 `PLACE`、`COORDINATE`、`MINERAL_POINT`、`BOREHOLE`、`FAULT`、`SURVEY_AREA`，几何限制为符合 WGS 84 范围的 `Point`、`LineString`、`Polygon`。模型只能引用请求中存在的实体和文本块；无法确认坐标的对象返回警告，不凭空生成几何。
+
+## 知识图谱与智能问答
+
+### `POST /api/documents/{id}/graph/sync`
+
+为已完成空间化的资料创建异步图谱与向量索引任务，成功受理返回 HTTP 202。地层、岩体、断裂/构造、矿体/矿化带、矿种和地区实体同步到 Neo4j；文档块由 BGE-M3 编码后写入 Qdrant。
+
+### `GET /api/documents/{id}/graph/status`
+
+返回 `PENDING`、`SYNCING`、`COMPLETED` 或 `FAILED`，以及同步进度、节点数、关系数、向量段落数、错误信息和完成时间。
+
+### 图谱查询
+
+- `GET /api/graph/nodes?query=&limit=`：按名称查询节点
+- `GET /api/graph/nodes/{id}/expand?depth=1`：展开 1–3 层邻接关系
+- `GET /api/graph/path?sourceId=&targetId=`：查询两个实体间六跳以内最短路径
+
+返回统一的 `nodes` 与 `links`，可直接用于 ECharts Graph。节点保留类型、资料编号、来源原文、页码和可用空间坐标；关系保留类型、置信度和证据。
+
+### `POST /api/qa/ask`
+
+请求示例：
+
+```json
+{"question":"鄂东南矿体主要受哪些构造控制？","provider":"deepseek","limit":5}
+```
+
+服务使用 BGE-M3 对问题编码，在 Qdrant 检索来源段落，再从 Neo4j 获取相关实体和空间上下文，最后调用所选 LLM 生成受证据约束的回答。响应包含 `answer`、`relatedEntities`、`spatialLocations`、`sources`、`provider` 和 `model`。
+
+AI 内部接口为 `POST /api/v1/graph/sync`、`GET /api/v1/graph/nodes`、`GET /api/v1/graph/expand/{id}`、`GET /api/v1/graph/path` 与 `POST /api/v1/qa/ask`。

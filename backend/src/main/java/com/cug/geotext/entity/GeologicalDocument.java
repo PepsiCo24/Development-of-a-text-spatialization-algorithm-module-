@@ -44,6 +44,13 @@ public class GeologicalDocument {
     private String spatialWarnings;
     private Integer spatialObjectCount;
     private OffsetDateTime spatialExtractedAt;
+    private String graphStatus;
+    private Integer graphProgress;
+    private String graphError;
+    private Integer graphNodeCount;
+    private Integer graphRelationCount;
+    private Integer vectorChunkCount;
+    private OffsetDateTime graphSyncedAt;
     private Long fileSize;
     @JsonIgnore
     private Long createdBy;
@@ -118,6 +125,20 @@ public class GeologicalDocument {
     public void setSpatialObjectCount(Integer spatialObjectCount) { this.spatialObjectCount = spatialObjectCount; }
     public OffsetDateTime getSpatialExtractedAt() { return spatialExtractedAt; }
     public void setSpatialExtractedAt(OffsetDateTime spatialExtractedAt) { this.spatialExtractedAt = spatialExtractedAt; }
+    public String getGraphStatus() { return graphStatus; }
+    public void setGraphStatus(String value) { graphStatus = value; }
+    public Integer getGraphProgress() { return graphProgress; }
+    public void setGraphProgress(Integer value) { graphProgress = value; }
+    public String getGraphError() { return graphError; }
+    public void setGraphError(String value) { graphError = value; }
+    public Integer getGraphNodeCount() { return graphNodeCount; }
+    public void setGraphNodeCount(Integer value) { graphNodeCount = value; }
+    public Integer getGraphRelationCount() { return graphRelationCount; }
+    public void setGraphRelationCount(Integer value) { graphRelationCount = value; }
+    public Integer getVectorChunkCount() { return vectorChunkCount; }
+    public void setVectorChunkCount(Integer value) { vectorChunkCount = value; }
+    public OffsetDateTime getGraphSyncedAt() { return graphSyncedAt; }
+    public void setGraphSyncedAt(OffsetDateTime value) { graphSyncedAt = value; }
     public Long getFileSize() { return fileSize; }
     public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
     public Long getCreatedBy() { return createdBy; }

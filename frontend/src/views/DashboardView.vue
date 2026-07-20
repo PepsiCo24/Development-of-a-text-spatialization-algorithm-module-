@@ -22,13 +22,13 @@ const stages = [
 
 <template>
   <div class="dashboard-page">
-    <section class="dashboard-hero"><div><span class="eyebrow">Phase 6 · 地质文本空间化</span><h1>从一段地质文字，<br>抵达一张可计算的地图。</h1><p>地名、坐标、矿点、钻孔、断裂与调查区域已转化为空间对象，并与资料页码和原文证据双向联动。</p></div><div class="hero-seal"><span>系统阶段</span><strong>06</strong><small>SPATIAL</small></div></section>
+    <section class="dashboard-hero"><div><span class="eyebrow">Phase 7 · 知识图谱与智能问答</span><h1>沿着地质关系探索，<br>让每个答案回到证据。</h1><p>Neo4j 关系网络、Qdrant 语义检索与 BGE-M3 向量模型已接入 DeepSeek/Qwen，回答同步给出实体、位置和来源段落。</p></div><div class="hero-seal"><span>系统阶段</span><strong>07</strong><small>GRAPH + RAG</small></div></section>
     <section class="service-row" aria-label="服务状态">
       <article><span class="service-index">A</span><div><small>业务服务 / Spring Boot</small><strong><i :class="backend"></i>{{ stateLabel[backend] }}</strong></div><code>:8080</code></article>
       <article><span class="service-index">B</span><div><small>智能服务 / FastAPI</small><strong><i :class="ai"></i>{{ stateLabel[ai] }}</strong></div><code>:8000</code></article>
       <article><span class="service-index">D</span><div><small>数据底座 / PostgreSQL</small><strong><i class="checking"></i>等待配置</strong></div><code>:5432</code></article>
     </section>
     <section class="workflow-section"><div class="section-heading"><div><span class="eyebrow">处理链</span><h2>资料如何成为空间知识</h2></div><p>每个阶段保留来源页码与原文证据，确保识别结果可定位、可核查。</p></div><div class="workflow-grid"><article v-for="stage in stages" :key="stage[0]"><span>{{ stage[0] }}</span><strong>{{ stage[1] }}</strong><small>{{ stage[2] }}</small></article></div></section>
-    <section class="foundation-note"><span>当前成果</span><p>六类空间对象、PostGIS 几何持久化、OpenLayers 地图工具和地图—原文证据联动已形成完整空间化流程。</p><strong>READY / 06</strong></section>
+    <section class="foundation-note"><span>当前成果</span><p>六类图谱节点、四类核心关系、节点展开、最短路径与证据约束问答已形成可追溯的地质知识服务。</p><strong>READY / 07</strong></section>
   </div>
 </template>

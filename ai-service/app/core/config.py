@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "GeoText AI Service"
-    app_version: str = "0.6.0"
+    app_version: str = "0.7.0"
     app_env: str = "development"
     ai_service_host: str = "0.0.0.0"
     ai_service_port: int = 8000
@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     geocoding_user_agent: str = "GeoText-Spatialization/0.6"
     geocoding_timeout_seconds: float = 20.0
     geocoding_min_interval_seconds: float = 1.0
+    embedding_model: str = "BAAI/bge-m3"
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str | None = None
+    qdrant_collection: str = "geotext_chunks"
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_username: str = "neo4j"
+    neo4j_password: str = "change-me"
+    neo4j_database: str = "neo4j"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
