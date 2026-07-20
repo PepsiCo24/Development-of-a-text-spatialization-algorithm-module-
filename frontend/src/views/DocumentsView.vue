@@ -1,0 +1,192 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, EditPen, Search, UploadFilled, View } from '@element-plus/icons-vue'
+import {
+  deleteDocument,
+  fetchDocumentFile,
+  listDocuments,
+  updateDocument,
+  updateDocumentStatus,
+  uploadDocument,
+  type DocumentMetadata,
+  type GeologicalDocument,
+} from '@/api/documents'
+
+const loading = ref(false)
+const records = ref<GeologicalDocument[]>([])
+const total = ref(0)
+const filters = reactive({ query: '', type: '', status: '', region: '', year: undefined as number | undefined, page: 1, size: 10 })
+
+const uploadOpen = ref(false)
+const uploadLoading = ref(false)
+const selectedFile = ref<File>()
+const fileInput = ref<HTMLInputElement>()
+const uploadForm = reactive<DocumentMetadata>({ name: '', region: '', year: undefined, keyword: '', summary: '' })
+
+const editOpen = ref(false)
+const editLoading = ref(false)
+const editingId = ref<number>()
+const editForm = reactive<DocumentMetadata>({ name: '', region: '', year: undefined, keyword: '', summary: '' })
+
+const previewOpen = ref(false)
+const previewUrl = ref('')
+const previewDocument = ref<GeologicalDocument>()
+
+const typeLabels: Record<string, string> = { PDF: 'PDF', WORD: 'Word', TXT: '文本', IMAGE: '图片' }
+const statusLabels: Record<string, string> = { UPLOADED: '待解析', PARSING: '解析中', PARSED: '已解析', FAILED: '异常', ARCHIVED: '已归档' }
+const statusTypes: Record<string, 'info' | 'warning' | 'success' | 'danger'> = { UPLOADED: 'info', PARSING: 'warning', PARSED: 'success', FAILED: 'danger', ARCHIVED: 'info' }
+const accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff'
+const previewable = computed(() => previewDocument.value && previewDocument.value.type !== 'WORD')
+
+async function loadDocuments() {
+  loading.value = true
+  try {
+    const page = await listDocuments({ ...filters })
+    records.value = page.records
+    total.value = page.total
+  } catch (error) { ElMessage.error(messageOf(error)) }
+  finally { loading.value = false }
+}
+
+function search() { filters.page = 1; loadDocuments() }
+function resetFilters() {
+  Object.assign(filters, { query: '', type: '', status: '', region: '', year: undefined, page: 1, size: 10 })
+  loadDocuments()
+}
+
+function chooseFile() { fileInput.value?.click() }
+function onFileSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file && file.size > 100 * 1024 * 1024) {
+    input.value = ''
+    selectedFile.value = undefined
+    ElMessage.warning('单个文件不能超过 100 MB')
+    return
+  }
+  selectedFile.value = file
+  if (selectedFile.value && !uploadForm.name) uploadForm.name = selectedFile.value.name
+}
+
+async function submitUpload() {
+  if (!selectedFile.value) return ElMessage.warning('请先选择资料文件')
+  uploadLoading.value = true
+  try {
+    await uploadDocument(selectedFile.value, uploadForm)
+    ElMessage.success('资料已上传')
+    uploadOpen.value = false
+    resetUpload()
+    await loadDocuments()
+  } catch (error) { ElMessage.error(messageOf(error)) }
+  finally { uploadLoading.value = false }
+}
+
+function resetUpload() {
+  selectedFile.value = undefined
+  Object.assign(uploadForm, { name: '', region: '', year: undefined, keyword: '', summary: '' })
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+function openEdit(document: GeologicalDocument) {
+  editingId.value = document.id
+  Object.assign(editForm, { name: document.name, region: document.region ?? '', year: document.year, keyword: document.keyword ?? '', summary: document.summary ?? '' })
+  editOpen.value = true
+}
+
+async function submitEdit() {
+  if (!editingId.value || !editForm.name?.trim()) return ElMessage.warning('资料名称不能为空')
+  editLoading.value = true
+  try {
+    await updateDocument(editingId.value, editForm)
+    ElMessage.success('资料信息已更新')
+    editOpen.value = false
+    await loadDocuments()
+  } catch (error) { ElMessage.error(messageOf(error)) }
+  finally { editLoading.value = false }
+}
+
+async function changeStatus(document: GeologicalDocument, status: GeologicalDocument['status']) {
+  const previous = document.status
+  document.status = status
+  try { await updateDocumentStatus(document.id, status); ElMessage.success('状态已更新') }
+  catch (error) { document.status = previous; ElMessage.error(messageOf(error)) }
+}
+
+async function remove(document: GeologicalDocument) {
+  try {
+    await ElMessageBox.confirm(`删除“${document.name}”后，服务器文件也会一并移除。`, '确认删除资料', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
+    await deleteDocument(document.id)
+    ElMessage.success('资料已删除')
+    if (records.value.length === 1 && filters.page > 1) filters.page -= 1
+    await loadDocuments()
+  } catch (error) { if (error !== 'cancel' && error !== 'close') ElMessage.error(messageOf(error)) }
+}
+
+async function preview(document: GeologicalDocument) {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewDocument.value = document
+  try {
+    const blob = await fetchDocumentFile(document.id)
+    previewUrl.value = URL.createObjectURL(blob)
+    if (document.type === 'WORD') {
+      const link = window.document.createElement('a')
+      link.href = previewUrl.value
+      link.download = document.name
+      link.click()
+      ElMessage.info('Word 文件已下载，请使用本地软件查看')
+    } else previewOpen.value = true
+  } catch (error) { ElMessage.error(messageOf(error)) }
+}
+
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+}
+function messageOf(error: unknown) { return error instanceof Error ? error.message : '操作失败' }
+
+onMounted(loadDocuments)
+onBeforeUnmount(() => { if (previewUrl.value) URL.revokeObjectURL(previewUrl.value) })
+</script>
+
+<template>
+  <div class="documents-page">
+    <header class="page-intro">
+      <div><span class="eyebrow">Phase 2 · Geological archive</span><h1>地质资料资源池</h1><p>集中管理报告、区域调查与矿产调查资料，为后续智能解析保留完整来源。</p></div>
+      <button class="primary-action" type="button" @click="uploadOpen = true"><el-icon><UploadFilled /></el-icon><span>上传资料</span></button>
+    </header>
+
+    <section class="document-filters" aria-label="资料筛选">
+      <el-input v-model="filters.query" clearable placeholder="搜索名称、关键词或摘要" :prefix-icon="Search" @keyup.enter="search" />
+      <el-select v-model="filters.type" clearable placeholder="文件类型"><el-option label="PDF" value="PDF" /><el-option label="Word" value="WORD" /><el-option label="文本" value="TXT" /><el-option label="图片" value="IMAGE" /></el-select>
+      <el-select v-model="filters.status" clearable placeholder="处理状态"><el-option v-for="(label, value) in statusLabels" :key="value" :label="label" :value="value" /></el-select>
+      <el-input v-model="filters.region" clearable placeholder="所属区域" @keyup.enter="search" />
+      <div class="filter-actions"><button type="button" @click="resetFilters">重置</button><button type="button" @click="search">查询资料</button></div>
+    </section>
+
+    <section class="document-table-wrap">
+      <div class="table-caption"><span>资料清单</span><small>共 {{ total }} 份资料</small></div>
+      <el-table v-loading="loading" :data="records" row-key="id" empty-text="暂无资料，点击右上角上传第一份地质资料">
+        <el-table-column label="资料名称" min-width="250"><template #default="{ row }"><div class="document-name"><span :class="`type-${row.type.toLowerCase()}`">{{ typeLabels[row.type] }}</span><div><strong>{{ row.name }}</strong><small>{{ row.keyword || '未设置关键词' }}</small></div></div></template></el-table-column>
+        <el-table-column prop="region" label="区域" width="110"><template #default="{ row }">{{ row.region || '—' }}</template></el-table-column>
+        <el-table-column prop="year" label="年份" width="75"><template #default="{ row }">{{ row.year || '—' }}</template></el-table-column>
+        <el-table-column label="大小" width="85"><template #default="{ row }">{{ formatSize(row.fileSize) }}</template></el-table-column>
+        <el-table-column label="状态" width="125"><template #default="{ row }"><el-select :model-value="row.status" size="small" @change="(value: GeologicalDocument['status']) => changeStatus(row, value)"><el-option v-for="(label, value) in statusLabels" :key="value" :label="label" :value="value"><el-tag :type="statusTypes[value]" size="small" effect="plain">{{ label }}</el-tag></el-option></el-select></template></el-table-column>
+        <el-table-column label="入库日期" width="118"><template #default="{ row }">{{ new Date(row.createTime).toLocaleDateString('zh-CN') }}</template></el-table-column>
+        <el-table-column label="操作" width="130"><template #default="{ row }"><div class="row-actions"><el-tooltip content="预览"><button type="button" @click="preview(row)"><el-icon><View /></el-icon></button></el-tooltip><el-tooltip content="编辑"><button type="button" @click="openEdit(row)"><el-icon><EditPen /></el-icon></button></el-tooltip><el-tooltip content="删除"><button class="danger" type="button" @click="remove(row)"><el-icon><Delete /></el-icon></button></el-tooltip></div></template></el-table-column>
+      </el-table>
+      <el-pagination v-if="total > filters.size" v-model:current-page="filters.page" v-model:page-size="filters.size" background layout="prev, pager, next" :total="total" @current-change="loadDocuments" />
+    </section>
+
+    <el-dialog v-model="uploadOpen" title="上传地质资料" width="min(620px, 92vw)" @closed="resetUpload">
+      <div class="file-picker" role="button" tabindex="0" @click="chooseFile" @keydown.enter="chooseFile"><input ref="fileInput" type="file" :accept="accept" @change="onFileSelected" /><el-icon><UploadFilled /></el-icon><strong>{{ selectedFile?.name || '选择 PDF、Word、TXT 或图片' }}</strong><small>{{ selectedFile ? formatSize(selectedFile.size) : '单个文件最大 100 MB' }}</small></div>
+      <el-form label-position="top" class="metadata-form"><div class="form-grid"><el-form-item label="资料名称"><el-input v-model="uploadForm.name" placeholder="默认使用文件名" maxlength="255" /></el-form-item><el-form-item label="所属区域"><el-input v-model="uploadForm.region" placeholder="例如：鄂东南" /></el-form-item><el-form-item label="资料年份"><el-input-number v-model="uploadForm.year" :min="1800" :max="2100" controls-position="right" /></el-form-item><el-form-item label="关键词"><el-input v-model="uploadForm.keyword" placeholder="多个关键词用逗号分隔" /></el-form-item></div><el-form-item label="摘要"><el-input v-model="uploadForm.summary" type="textarea" :rows="3" placeholder="简要说明资料内容" maxlength="5000" show-word-limit /></el-form-item></el-form>
+      <template #footer><el-button @click="uploadOpen = false">取消</el-button><el-button type="primary" :loading="uploadLoading" @click="submitUpload">上传资料</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="editOpen" title="编辑资料信息" width="min(620px, 92vw)"><el-form label-position="top" class="metadata-form"><div class="form-grid"><el-form-item label="资料名称" required><el-input v-model="editForm.name" maxlength="255" /></el-form-item><el-form-item label="所属区域"><el-input v-model="editForm.region" /></el-form-item><el-form-item label="资料年份"><el-input-number v-model="editForm.year" :min="1800" :max="2100" controls-position="right" /></el-form-item><el-form-item label="关键词"><el-input v-model="editForm.keyword" /></el-form-item></div><el-form-item label="摘要"><el-input v-model="editForm.summary" type="textarea" :rows="4" maxlength="5000" show-word-limit /></el-form-item></el-form><template #footer><el-button @click="editOpen = false">取消</el-button><el-button type="primary" :loading="editLoading" @click="submitEdit">保存修改</el-button></template></el-dialog>
+
+    <el-dialog v-model="previewOpen" :title="previewDocument?.name" width="min(1100px, 94vw)" destroy-on-close><div class="document-preview" v-if="previewable"><img v-if="previewDocument?.type === 'IMAGE'" :src="previewUrl" :alt="previewDocument.name" /><iframe v-else :src="previewUrl" :title="previewDocument?.name"></iframe></div></el-dialog>
+  </div>
+</template>

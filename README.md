@@ -4,15 +4,20 @@
 
 ## 当前进度
 
-Phase 1（基础工程架构）已实现：
+Phase 1–2 已实现：
 
 - Vue 3 + TypeScript + Vite 前端，包含登录、路由守卫、响应式布局和系统工作台
 - Spring Boot 3 + Java 17 后端，包含 PostgreSQL、MyBatis Plus、JWT 登录、Swagger、健康检查和统一异常响应
 - FastAPI AI 服务，包含分层配置、健康检查、OpenAPI 文档和基础测试
 - PostgreSQL 初始化脚本，创建 `app_user`、`document`、`system_log` 表及演示管理员
 - 前端工作台主动检测后端与 AI 服务状态
+- 地质报告、区域调查资料和矿产调查资料的上传、查询、分类、编辑、删除与状态管理
+- PDF、Word、TXT、PNG/JPEG/TIFF 文件校验和安全的分层物理存储
+- 名称、关键词、摘要、区域、年份、类型和处理状态组合检索与分页
+- 鉴权文件预览/下载，服务端存储路径不会暴露给浏览器
+- `/documents` 响应式资料资源池、上传表单、元数据编辑、状态切换和在线预览界面
 
-后续将严格按 Phase 2–8 实现资料资源池、文档解析、实体关系抽取、术语标准化、GIS 空间化、知识图谱、智能问答和成果导出。
+后续将严格按 Phase 3–8 实现文档解析、实体关系抽取、术语标准化、GIS 空间化、知识图谱、智能问答和成果导出。
 
 ## 系统架构
 
@@ -58,6 +63,14 @@ psql -U postgres -d geotext -f database/init.sql
 ```
 
 默认数据库连接为 `jdbc:postgresql://localhost:5432/geotext`，可通过 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD` 覆盖。生产环境必须设置新的 `JWT_SECRET`。
+
+从 Phase 1 数据库升级时执行：
+
+```powershell
+psql -U postgres -d geotext -f database/migrations/V002__document_resource_pool.sql
+```
+
+上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOC/DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。
 
 ### 2. 启动后端
 
@@ -120,3 +133,4 @@ pytest
 
 详细接口以 Spring Boot Swagger 和 FastAPI `/docs` 为准。
 
+Phase 2 接口说明见 [`docs/api.md`](docs/api.md)。

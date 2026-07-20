@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS document (
     keyword         TEXT,
     summary         TEXT,
     file_path       VARCHAR(1024) NOT NULL,
+    original_name   VARCHAR(255) NOT NULL,
+    content_type    VARCHAR(150) NOT NULL,
     status          VARCHAR(32) NOT NULL DEFAULT 'UPLOADED',
     file_size       BIGINT NOT NULL DEFAULT 0,
     created_by      BIGINT REFERENCES app_user(id),
@@ -54,4 +56,3 @@ VALUES ('admin', crypt('admin123', gen_salt('bf')), '系统管理员', 'ADMIN')
 ON CONFLICT (username) DO NOTHING;
 
 COMMIT;
-

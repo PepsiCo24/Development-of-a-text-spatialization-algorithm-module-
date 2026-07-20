@@ -1,0 +1,60 @@
+package com.cug.geotext.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.OffsetDateTime;
+
+@TableName("document")
+public class GeologicalDocument {
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    private String name;
+    private String type;
+    private String region;
+    private Integer year;
+    private String keyword;
+    private String summary;
+    @JsonIgnore
+    private String filePath;
+    private String originalName;
+    private String contentType;
+    private String status;
+    private Long fileSize;
+    @JsonIgnore
+    private Long createdBy;
+    private OffsetDateTime createTime;
+    private OffsetDateTime updateTime;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    public String getRegion() { return region; }
+    public void setRegion(String region) { this.region = region; }
+    public Integer getYear() { return year; }
+    public void setYear(Integer year) { this.year = year; }
+    public String getKeyword() { return keyword; }
+    public void setKeyword(String keyword) { this.keyword = keyword; }
+    public String getSummary() { return summary; }
+    public void setSummary(String summary) { this.summary = summary; }
+    public String getFilePath() { return filePath; }
+    public void setFilePath(String filePath) { this.filePath = filePath; }
+    public String getOriginalName() { return originalName; }
+    public void setOriginalName(String originalName) { this.originalName = originalName; }
+    public String getContentType() { return contentType; }
+    public void setContentType(String contentType) { this.contentType = contentType; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public Long getFileSize() { return fileSize; }
+    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+    public Long getCreatedBy() { return createdBy; }
+    public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
+    public OffsetDateTime getCreateTime() { return createTime; }
+    public void setCreateTime(OffsetDateTime createTime) { this.createTime = createTime; }
+    public OffsetDateTime getUpdateTime() { return updateTime; }
+    public void setUpdateTime(OffsetDateTime updateTime) { this.updateTime = updateTime; }
+}

@@ -11,6 +11,7 @@ const router = createRouter({
       children: [
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
+        { path: 'documents', name: 'documents', component: () => import('@/views/DocumentsView.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
@@ -24,4 +25,3 @@ router.beforeEach((to) => {
 })
 
 export default router
-
