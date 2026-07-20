@@ -21,6 +21,7 @@ const router = createRouter({
         { path: 'dictionary', name: 'dictionary', component: () => import('@/views/DictionaryView.vue') },
         { path: 'map', name: 'map', component: () => import('@/views/SpatialMapView.vue') },
         { path: 'graph', name: 'graph', component: () => import('@/views/KnowledgeGraphView.vue') },
+        { path: 'admin', name: 'admin', component: () => import('@/views/SystemAdminView.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

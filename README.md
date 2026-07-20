@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-Phase 1–7 已实现：
+Phase 1–8 已全部实现：
 
 - Vue 3 + TypeScript + Vite 前端，包含登录、路由守卫、响应式布局和系统工作台
 - Spring Boot 3 + Java 17 后端，包含 PostgreSQL、MyBatis Plus、JWT 登录、Swagger、健康检查和统一异常响应
@@ -38,8 +38,12 @@ Phase 1–7 已实现：
 - 节点查询、1–3 层关系展开、最短路径查询和 ECharts Graph 交互可视化
 - `BAAI/bge-m3` 文档块 Embedding 与 Qdrant 向量索引
 - “向量检索 → Neo4j 上下文 → DeepSeek/Qwen”证据约束问答，回答包含实体、空间位置、资料和来源段落
+- Excel 多工作表、CSV、JSON 与 GeoJSON 成果导出
+- 用户新增/编辑/启停/删除、全流程任务监控和 AI 调用审计日志
+- DeepSeek/Qwen API 地址、模型、Key、temperature 与 Prompt 模板持久化配置及实时应用
+- 三份可直接导入的地质演示资料、批量导入脚本、部署文档、接口文档、系统截图和测试报告
 
-后续将按 Phase 8 完成成果导出、系统管理、模型配置、Demo 数据和最终发布。
+当前版本为科研课题成果展示与专家评审用 `v1.0.0` 完整交付版。
 
 ## 系统架构
 
@@ -97,6 +101,7 @@ psql -U postgres -d geotext -f database/migrations/V004__geological_entity_recog
 psql -U postgres -d geotext -f database/migrations/V005__attributes_relations_dictionary.sql
 psql -U postgres -d geotext -f database/migrations/V006__text_spatialization_gis.sql
 psql -U postgres -d geotext -f database/migrations/V007__knowledge_graph_and_rag.sql
+psql -U postgres -d geotext -f database/migrations/V008__system_management_and_llm_config.sql
 ```
 
 上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOC/DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。
@@ -190,4 +195,10 @@ pytest
 
 详细接口以 Spring Boot Swagger 和 FastAPI `/docs` 为准。
 
-Phase 1–7 接口说明见 [`docs/api.md`](docs/api.md)。
+## 交付资料
+
+- [部署说明](docs/deployment.md)
+- [接口说明](docs/api.md)
+- [测试报告](docs/test-report.md)
+- [Demo 数据](demo-data/README.md)
+- 系统截图：[空间地图](docs/screenshots/spatial-map.png)、[知识图谱](docs/screenshots/knowledge-graph.png)、[成果与系统控制台](docs/screenshots/system-admin.png)

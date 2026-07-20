@@ -28,7 +28,7 @@ class GeologicalSpatialExtractor:
         return provider,list(unique.values()),warnings
     def _call(self,provider:ProviderConfig,chunk:SpatialChunk,region_hint:str|None)->Any:
         entity_json=json.dumps([e.model_dump() for e in chunk.entities],ensure_ascii=False)
-        request={"model":provider.model,"temperature":self.settings.llm_temperature,"max_tokens":self.settings.llm_max_tokens,"response_format":{"type":"json_object"},"messages":[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":f"区域提示：{region_hint or '无'}\n页码范围：{chunk.page_start}-{chunk.page_end}\n实体清单：{entity_json}\n原文：\n{chunk.content}"}]}
+        request={"model":provider.model,"temperature":provider.temperature,"max_tokens":self.settings.llm_max_tokens,"response_format":{"type":"json_object"},"messages":[{"role":"system","content":self.resolver._system_prompt(provider,SYSTEM_PROMPT)},{"role":"user","content":f"区域提示：{region_hint or '无'}\n页码范围：{chunk.page_start}-{chunk.page_end}\n实体清单：{entity_json}\n原文：\n{chunk.content}"}]}
         try:
             response=self.client.post(f"{provider.base_url}/chat/completions",headers={"Authorization":f"Bearer {provider.api_key}"},json=request);response.raise_for_status()
             return self.resolver.decode_json(response.json()["choices"][0]["message"]["content"])

@@ -22,7 +22,7 @@ class GeologicalRagService:
         sources = self.vectors.search(question, limit); document_ids = list({int(item["document_id"]) for item in sources})
         entities = self.graph.context_for_documents(document_ids)
         evidence = json.dumps({"paragraphs":sources,"entities":entities}, ensure_ascii=False)
-        request = {"model":provider.model,"temperature":self.settings.llm_temperature,"max_tokens":self.settings.llm_max_tokens,"response_format":{"type":"json_object"},"messages":[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":f"问题：{question}\n证据：{evidence}"}]}
+        request = {"model":provider.model,"temperature":provider.temperature,"max_tokens":self.settings.llm_max_tokens,"response_format":{"type":"json_object"},"messages":[{"role":"system","content":self.providers._system_prompt(provider,SYSTEM_PROMPT)},{"role":"user","content":f"问题：{question}\n证据：{evidence}"}]}
         try:
             response = self.client.post(f"{provider.base_url}/chat/completions",headers={"Authorization":f"Bearer {provider.api_key}"},json=request); response.raise_for_status()
             payload = self.providers.decode_json(response.json()["choices"][0]["message"]["content"]); answer = str(payload.get("answer", "")).strip()

@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "GeoText AI Service"
-    app_version: str = "0.7.0"
+    app_version: str = "1.0.0"
     app_env: str = "development"
     ai_service_host: str = "0.0.0.0"
     ai_service_port: int = 8000

@@ -7,6 +7,7 @@ import httpx
 
 from app.core.config import Settings, get_settings
 from app.models.entity import EntityChunk, ExtractedEntity
+from app.services.runtime_config import get_runtime_provider
 
 ENTITY_TYPES = {
     "STRATUM", "LITHOLOGY", "ROCK_BODY", "FAULT", "MINERAL", "ORE_BODY",
@@ -33,6 +34,8 @@ class ProviderConfig:
     base_url: str
     api_key: str
     model: str
+    temperature: float
+    prompt_template: str | None
 
 
 class GeologicalEntityExtractor:
@@ -55,6 +58,9 @@ class GeologicalEntityExtractor:
 
     def resolve_provider(self, name: str) -> ProviderConfig:
         normalized = name.strip().lower()
+        runtime = get_runtime_provider(normalized)
+        if runtime:
+            return ProviderConfig(normalized, runtime.base_url, runtime.api_key, runtime.model, runtime.temperature, runtime.prompt_template)
         if normalized == "deepseek":
             values = (self.settings.deepseek_base_url, self.settings.deepseek_api_key, self.settings.deepseek_model)
         elif normalized == "qwen":
@@ -63,16 +69,16 @@ class GeologicalEntityExtractor:
             raise LlmConfigurationError("LLM provider 仅支持 deepseek 或 qwen")
         if not values[1]:
             raise LlmConfigurationError(f"未配置 {normalized.upper()}_API_KEY")
-        return ProviderConfig(normalized, values[0].rstrip("/"), values[1], values[2])
+        return ProviderConfig(normalized, values[0].rstrip("/"), values[1], values[2], self.settings.llm_temperature, None)
 
     def _call(self, provider: ProviderConfig, chunk: EntityChunk) -> Any:
         request = {
             "model": provider.model,
-            "temperature": self.settings.llm_temperature,
+            "temperature": provider.temperature,
             "max_tokens": self.settings.llm_max_tokens,
             "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_prompt(provider, SYSTEM_PROMPT)},
                 {"role": "user", "content": f"页码范围：{chunk.page_start}-{chunk.page_end}\n原文：\n{chunk.content}"},
             ],
         }
@@ -86,6 +92,10 @@ class GeologicalEntityExtractor:
             return self.decode_json(content)
         except (httpx.HTTPError, KeyError, IndexError, TypeError, json.JSONDecodeError) as exception:
             raise LlmExtractionError(f"{provider.name} 实体识别调用失败: {exception}") from exception
+
+    @staticmethod
+    def _system_prompt(provider: ProviderConfig, built_in: str) -> str:
+        return f"{provider.prompt_template}\n\n{built_in}" if provider.prompt_template else built_in
 
     @staticmethod
     def decode_json(content: str) -> Any:

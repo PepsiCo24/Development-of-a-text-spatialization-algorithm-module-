@@ -215,3 +215,40 @@ AI 服务内部接口。空间对象类型限制为 `PLACE`、`COORDINATE`、`MI
 服务使用 BGE-M3 对问题编码，在 Qdrant 检索来源段落，再从 Neo4j 获取相关实体和空间上下文，最后调用所选 LLM 生成受证据约束的回答。响应包含 `answer`、`relatedEntities`、`spatialLocations`、`sources`、`provider` 和 `model`。
 
 AI 内部接口为 `POST /api/v1/graph/sync`、`GET /api/v1/graph/nodes`、`GET /api/v1/graph/expand/{id}`、`GET /api/v1/graph/path` 与 `POST /api/v1/qa/ask`。
+
+## 成果导出
+
+### `GET /api/exports`
+
+查询参数：`documentId`、`format=xlsx|csv|json|geojson`，CSV 额外支持 `dataset=entities|attributes|relations|spatial`。
+
+- `xlsx`：实体、属性、关系、空间对象四张工作表
+- `csv`：带 UTF-8 BOM 的单数据集表格
+- `json`：资料元数据与四类成果的完整结构包
+- `geojson`：空间对象 `FeatureCollection`，属性包含名称、类型、资料、页码、原文和置信度
+
+响应使用附件下载头，文件名按资料名称生成。
+
+## 系统管理（ADMIN）
+
+### 用户
+
+- `GET /api/admin/users`
+- `POST /api/admin/users`
+- `PUT /api/admin/users/{id}`
+- `DELETE /api/admin/users/{id}`
+
+密码只接收不返回，服务端使用 BCrypt 保存；内置 `admin` 用户禁止删除。
+
+### 任务与日志
+
+- `GET /api/admin/tasks`：返回最近 500 个资料及解析、实体、知识、空间、图谱阶段状态
+- `GET /api/admin/logs?module=AI`：返回最近 500 条审计日志，包含调用时间、功能、模型、状态、耗时和异常
+
+### LLM 配置
+
+- `GET /api/admin/llm-configs`：密钥仅返回 `keyConfigured` 状态，不回显原值
+- `PUT /api/admin/llm-configs`：保存 provider、API 地址、模型、Key、temperature、Prompt 模板和启用状态
+- `POST /api/admin/llm-configs/{id}/apply`：将已保存配置实时应用至 AI 服务
+
+AI 运行时接收 `PUT /api/v1/config/provider`，配置会覆盖环境变量中的同名提供商参数；自定义 Prompt 作为内置严格 JSON/证据约束提示词的前缀，不会放宽数据契约。

@@ -13,10 +13,10 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class AiServiceConfig {
     @Bean
-    RestClient aiRestClient(@Value("${app.ai-service.base-url:http://localhost:8000}") String baseUrl) {
+    RestClient aiRestClient(@Value("${app.ai-service.base-url:http://localhost:8000}") String baseUrl, AiAuditInterceptor audit) {
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.DEFAULTS
             .withConnectTimeout(Duration.ofSeconds(10)).withReadTimeout(Duration.ofMinutes(10));
-        return RestClient.builder().baseUrl(baseUrl).requestFactory(ClientHttpRequestFactories.get(settings)).build();
+        return RestClient.builder().baseUrl(baseUrl).requestFactory(ClientHttpRequestFactories.get(settings)).requestInterceptor(audit).build();
     }
 
     @Bean("parsingExecutor")

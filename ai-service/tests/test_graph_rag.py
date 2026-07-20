@@ -7,7 +7,9 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.models.graph import GraphNode, GraphRelation, VectorChunk
 from app.services.graph_store import Neo4jGraphStore
+from app.services.llm_entities import GeologicalEntityExtractor
 from app.services.rag import GeologicalRagService
+from app.services.runtime_config import RuntimeProvider, set_runtime_provider
 from app.services.vector_store import QdrantVectorStore
 
 
@@ -108,3 +110,12 @@ def test_neo4j_sync_uses_whitelisted_relationship_type():
 
     assert counts == (2, 1)
     assert any("MERGE (s)-[r:CONTROLS" in query for query, _ in driver.calls)
+
+
+def test_runtime_provider_configuration_overrides_environment():
+    set_runtime_provider("qwen", RuntimeProvider("https://runtime.test/v1", "runtime-key", "qwen-custom", 0.4, "严格引用证据"))
+    provider = GeologicalEntityExtractor(Settings()).resolve_provider("qwen")
+    assert provider.base_url == "https://runtime.test/v1"
+    assert provider.model == "qwen-custom"
+    assert provider.temperature == 0.4
+    assert provider.prompt_template == "严格引用证据"

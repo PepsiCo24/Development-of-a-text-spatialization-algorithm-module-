@@ -38,10 +38,10 @@ class GeologicalKnowledgeExtractor:
     def _call(self, provider: ProviderConfig, chunk: KnowledgeChunk) -> Any:
         entity_json = json.dumps([item.model_dump(by_alias=True) for item in chunk.entities], ensure_ascii=False)
         request = {
-            "model": provider.model, "temperature": self.settings.llm_temperature,
+            "model": provider.model, "temperature": provider.temperature,
             "max_tokens": self.settings.llm_max_tokens, "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self.provider_resolver._system_prompt(provider, SYSTEM_PROMPT)},
                 {"role": "user", "content": f"页码范围：{chunk.page_start}-{chunk.page_end}\n实体清单：{entity_json}\n原文：\n{chunk.content}"},
             ],
         }
