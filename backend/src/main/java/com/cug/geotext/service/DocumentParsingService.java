@@ -49,6 +49,11 @@ public class DocumentParsingService {
     public ParseStatus start(long documentId) {
         GeologicalDocument document = documentService.get(documentId);
         if ("PARSING".equals(document.getStatus())) throw new BusinessException(409, "资料正在解析中");
+        document.setEntityStatus("PENDING");
+        document.setEntityProgress(0);
+        document.setEntityError(null);
+        document.setEntityCount(0);
+        document.setEntityExtractedAt(null);
         updateState(document, "PARSING", 5, null);
         executor.execute(() -> parse(documentId));
         return status(documentId);

@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-Phase 1–3 已实现：
+Phase 1–4 已实现：
 
 - Vue 3 + TypeScript + Vite 前端，包含登录、路由守卫、响应式布局和系统工作台
 - Spring Boot 3 + Java 17 后端，包含 PostgreSQL、MyBatis Plus、JWT 登录、Swagger、健康检查和统一异常响应
@@ -20,8 +20,12 @@ Phase 1–3 已实现：
 - 标题/章节识别、文本清洗、按页码分块及 `document_chunk` 持久化
 - Spring Boot 异步解析编排、进度与失败原因记录，以及 AI 服务 multipart 调用
 - `/parsing` 任务队列与 `/documents/{id}/parse` 原件/解析文本对照页面
+- DeepSeek 与 Qwen OpenAI-compatible API 的真实地质实体识别流程
+- 地层、岩性、岩体、断裂、矿种、矿体、矿化带、地质年代、地名、坐标、品位、厚度、倾向、倾角共十四类实体
+- 实体置信度、来源原文、页码、字符位置和调用模型持久化到 `entity` 表
+- `/entities` 任务入口与原文颜色高亮、类型筛选、点击查看证据详情页面
 
-后续将严格按 Phase 4–8 实现实体关系抽取、术语标准化、GIS 空间化、知识图谱、智能问答和成果导出。
+后续将严格按 Phase 5–8 实现属性关系抽取、术语标准化、GIS 空间化、知识图谱、智能问答和成果导出。
 
 ## 系统架构
 
@@ -73,6 +77,7 @@ psql -U postgres -d geotext -f database/init.sql
 ```powershell
 psql -U postgres -d geotext -f database/migrations/V002__document_resource_pool.sql
 psql -U postgres -d geotext -f database/migrations/V003__intelligent_document_parsing.sql
+psql -U postgres -d geotext -f database/migrations/V004__geological_entity_recognition.sql
 ```
 
 上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOC/DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。
@@ -98,6 +103,16 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 PaddleOCR 与 PaddlePaddle 由 `requirements.txt` 安装，首次识别会下载所需模型。可通过 `OCR_LANGUAGE`（默认 `ch`）、`OCR_DEVICE`（默认 `cpu`）和 `PARSE_CHUNK_SIZE` 调整解析行为。DOCX 使用 `python-docx` 解析；旧版二进制 `.doc` 文件请先另存为 DOCX。
+
+实体识别至少配置一个模型服务密钥：
+
+```powershell
+$env:DEEPSEEK_API_KEY="sk-..."
+# 或
+$env:QWEN_API_KEY="sk-..."
+```
+
+默认提供商由 `LLM_DEFAULT_PROVIDER=deepseek|qwen` 选择，也可在实体识别页面逐任务切换。API 地址、模型、温度、超时和最大输出长度均可通过 `.env.example` 中的变量覆盖；密钥只在 AI 服务环境中读取，不写入数据库或返回浏览器。
 
 - 健康检查：`http://localhost:8000/api/v1/health`
 - OpenAPI 文档：`http://localhost:8000/docs`
@@ -140,4 +155,4 @@ pytest
 
 详细接口以 Spring Boot Swagger 和 FastAPI `/docs` 为准。
 
-Phase 1–3 接口说明见 [`docs/api.md`](docs/api.md)。
+Phase 1–4 接口说明见 [`docs/api.md`](docs/api.md)。

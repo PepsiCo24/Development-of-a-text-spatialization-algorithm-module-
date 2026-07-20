@@ -4,11 +4,14 @@ import com.cug.geotext.common.ApiResponse;
 import com.cug.geotext.dto.DocumentMetadata;
 import com.cug.geotext.dto.DocumentQuery;
 import com.cug.geotext.dto.DocumentStatusRequest;
+import com.cug.geotext.dto.EntityExtractionRequest;
 import com.cug.geotext.dto.PageResult;
 import com.cug.geotext.entity.GeologicalDocument;
 import com.cug.geotext.entity.DocumentChunk;
+import com.cug.geotext.entity.GeologicalEntity;
 import com.cug.geotext.service.DocumentService;
 import com.cug.geotext.service.DocumentParsingService;
+import com.cug.geotext.service.EntityExtractionService;
 import jakarta.validation.Valid;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -38,9 +41,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class DocumentController {
     private final DocumentService documentService;
     private final DocumentParsingService parsingService;
-    public DocumentController(DocumentService documentService, DocumentParsingService parsingService) {
+    private final EntityExtractionService extractionService;
+    public DocumentController(DocumentService documentService, DocumentParsingService parsingService, EntityExtractionService extractionService) {
         this.documentService = documentService;
         this.parsingService = parsingService;
+        this.extractionService = extractionService;
     }
 
     @GetMapping
@@ -89,6 +94,23 @@ public class DocumentController {
     @GetMapping("/{id}/chunks")
     public ApiResponse<List<DocumentChunk>> chunks(@PathVariable long id) {
         return ApiResponse.ok(parsingService.chunks(id));
+    }
+
+    @PostMapping("/{id}/entities/extract")
+    public ResponseEntity<ApiResponse<EntityExtractionService.ExtractionStatus>> extractEntities(
+        @PathVariable long id, @Valid @RequestBody EntityExtractionRequest request
+    ) {
+        return ResponseEntity.accepted().body(ApiResponse.ok(extractionService.start(id, request.provider())));
+    }
+
+    @GetMapping("/{id}/entities/status")
+    public ApiResponse<EntityExtractionService.ExtractionStatus> entityStatus(@PathVariable long id) {
+        return ApiResponse.ok(extractionService.status(id));
+    }
+
+    @GetMapping("/{id}/entities")
+    public ApiResponse<List<GeologicalEntity>> entities(@PathVariable long id) {
+        return ApiResponse.ok(extractionService.entities(id));
     }
 
     @GetMapping("/{id}/preview")

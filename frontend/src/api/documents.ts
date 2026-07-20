@@ -16,6 +16,11 @@ export interface GeologicalDocument {
   pageCount?: number
   chunkCount?: number
   parsedAt?: string
+  entityStatus?: 'PENDING' | 'EXTRACTING' | 'COMPLETED' | 'FAILED'
+  entityProgress?: number
+  entityError?: string
+  entityCount?: number
+  entityExtractedAt?: string
   fileSize: number
   createTime: string
   updateTime: string
@@ -56,6 +61,33 @@ export interface ParseStatus {
   pageCount: number
   chunkCount: number
   parsedAt?: string
+}
+
+export type EntityType = 'STRATUM' | 'LITHOLOGY' | 'ROCK_BODY' | 'FAULT' | 'MINERAL' | 'ORE_BODY' | 'MINERALIZATION_ZONE' | 'GEOLOGICAL_AGE' | 'PLACE' | 'COORDINATE' | 'GRADE' | 'THICKNESS' | 'DIP_DIRECTION' | 'DIP_ANGLE'
+
+export interface GeologicalEntity {
+  id: number
+  documentId: number
+  chunkId: number
+  entityName: string
+  entityType: EntityType
+  confidence: number
+  sourceText: string
+  page: number
+  sourceStart?: number
+  sourceEnd?: number
+  provider: 'deepseek' | 'qwen'
+  model: string
+  createTime: string
+}
+
+export interface EntityExtractionStatus {
+  documentId: number
+  status: 'PENDING' | 'EXTRACTING' | 'COMPLETED' | 'FAILED'
+  progress: number
+  errorMessage?: string
+  entityCount: number
+  extractedAt?: string
 }
 
 export interface DocumentFilters {
@@ -118,5 +150,20 @@ export async function getDocumentParseStatus(id: number): Promise<ParseStatus> {
 
 export async function getDocumentChunks(id: number): Promise<DocumentChunk[]> {
   const response = await http.get(`/documents/${id}/chunks`)
+  return response.data.data
+}
+
+export async function startEntityExtraction(id: number, provider: 'deepseek' | 'qwen'): Promise<EntityExtractionStatus> {
+  const response = await http.post(`/documents/${id}/entities/extract`, { provider })
+  return response.data.data
+}
+
+export async function getEntityExtractionStatus(id: number): Promise<EntityExtractionStatus> {
+  const response = await http.get(`/documents/${id}/entities/status`)
+  return response.data.data
+}
+
+export async function getDocumentEntities(id: number): Promise<GeologicalEntity[]> {
+  const response = await http.get(`/documents/${id}/entities`)
   return response.data.data
 }

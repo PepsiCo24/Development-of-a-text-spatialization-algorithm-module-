@@ -14,6 +14,8 @@ const router = createRouter({
         { path: 'documents', name: 'documents', component: () => import('@/views/DocumentsView.vue') },
         { path: 'documents/:id/parse', name: 'document-parse', component: () => import('@/views/DocumentParseView.vue') },
         { path: 'parsing', name: 'parsing', component: () => import('@/views/ParsingQueueView.vue') },
+        { path: 'entities', name: 'entities', component: () => import('@/views/EntityQueueView.vue') },
+        { path: 'documents/:id/entities', name: 'document-entities', component: () => import('@/views/EntityRecognitionView.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
