@@ -11,6 +11,11 @@ export interface GeologicalDocument {
   originalName: string
   contentType: string
   status: 'UPLOADED' | 'PARSING' | 'PARSED' | 'FAILED' | 'ARCHIVED'
+  parseProgress?: number
+  errorMessage?: string
+  pageCount?: number
+  chunkCount?: number
+  parsedAt?: string
   fileSize: number
   createTime: string
   updateTime: string
@@ -32,6 +37,27 @@ export interface DocumentPage {
   pages: number
 }
 
+export interface DocumentChunk {
+  id: number
+  documentId: number
+  chunkIndex: number
+  chapterTitle?: string
+  content: string
+  pageStart: number
+  pageEnd: number
+  charCount: number
+}
+
+export interface ParseStatus {
+  documentId: number
+  status: GeologicalDocument['status']
+  progress: number
+  errorMessage?: string
+  pageCount: number
+  chunkCount: number
+  parsedAt?: string
+}
+
 export interface DocumentFilters {
   query?: string
   type?: string
@@ -44,6 +70,11 @@ export interface DocumentFilters {
 
 export async function listDocuments(filters: DocumentFilters): Promise<DocumentPage> {
   const response = await http.get('/documents', { params: filters })
+  return response.data.data
+}
+
+export async function getDocument(id: number): Promise<GeologicalDocument> {
+  const response = await http.get(`/documents/${id}`)
   return response.data.data
 }
 
@@ -73,4 +104,19 @@ export async function deleteDocument(id: number): Promise<void> {
 export async function fetchDocumentFile(id: number, disposition = 'inline'): Promise<Blob> {
   const response = await http.get(`/documents/${id}/preview`, { params: { disposition }, responseType: 'blob' })
   return response.data
+}
+
+export async function startDocumentParsing(id: number): Promise<ParseStatus> {
+  const response = await http.post(`/documents/${id}/parse`)
+  return response.data.data
+}
+
+export async function getDocumentParseStatus(id: number): Promise<ParseStatus> {
+  const response = await http.get(`/documents/${id}/parse/status`)
+  return response.data.data
+}
+
+export async function getDocumentChunks(id: number): Promise<DocumentChunk[]> {
+  const response = await http.get(`/documents/${id}/chunks`)
+  return response.data.data
 }

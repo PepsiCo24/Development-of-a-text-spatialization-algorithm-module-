@@ -33,6 +33,8 @@ management:
         include: health,info
 
 app:
+  ai-service:
+    base-url: ${AI_SERVICE_URL:http://localhost:8000}
   storage:
     root: ${DOCUMENT_STORAGE_ROOT:uploads/documents}
   jwt:

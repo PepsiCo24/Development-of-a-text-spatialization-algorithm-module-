@@ -22,13 +22,13 @@ const stages = [
 
 <template>
   <div class="dashboard-page">
-    <section class="dashboard-hero"><div><span class="eyebrow">Phase 2 · 地质资料资源池</span><h1>从一段地质文字，<br>抵达一张可计算的地图。</h1><p>系统骨架与资料入口已经就位。前端、业务服务与 AI 服务沿同一条资料处理链协同工作。</p></div><div class="hero-seal"><span>系统阶段</span><strong>02</strong><small>ARCHIVE</small></div></section>
+    <section class="dashboard-hero"><div><span class="eyebrow">Phase 3 · 智能文档解析</span><h1>从一段地质文字，<br>抵达一张可计算的地图。</h1><p>资料入库与智能解析链路已经就位。系统可提取 PDF、DOCX、TXT 与扫描件内容，并保留页码和原文证据。</p></div><div class="hero-seal"><span>系统阶段</span><strong>03</strong><small>PARSING</small></div></section>
     <section class="service-row" aria-label="服务状态">
       <article><span class="service-index">A</span><div><small>业务服务 / Spring Boot</small><strong><i :class="backend"></i>{{ stateLabel[backend] }}</strong></div><code>:8080</code></article>
       <article><span class="service-index">B</span><div><small>智能服务 / FastAPI</small><strong><i :class="ai"></i>{{ stateLabel[ai] }}</strong></div><code>:8000</code></article>
       <article><span class="service-index">D</span><div><small>数据底座 / PostgreSQL</small><strong><i class="checking"></i>等待配置</strong></div><code>:5432</code></article>
     </section>
     <section class="workflow-section"><div class="section-heading"><div><span class="eyebrow">处理链</span><h2>资料如何成为空间知识</h2></div><p>每个阶段保留来源页码与原文证据，确保识别结果可定位、可核查。</p></div><div class="workflow-grid"><article v-for="stage in stages" :key="stage[0]"><span>{{ stage[0] }}</span><strong>{{ stage[1] }}</strong><small>{{ stage[2] }}</small></article></div></section>
-    <section class="foundation-note"><span>当前成果</span><p>资料上传、分类检索、元数据编辑、状态管理与在线预览已经接入真实存储和数据库接口。</p><strong>READY / 02</strong></section>
+    <section class="foundation-note"><span>当前成果</span><p>文档解析、扫描件 OCR、章节识别、文本清洗与分页文本块已接入异步任务和真实数据库接口。</p><strong>READY / 03</strong></section>
   </div>
 </template>

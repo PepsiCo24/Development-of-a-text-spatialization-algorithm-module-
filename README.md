@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-Phase 1–2 已实现：
+Phase 1–3 已实现：
 
 - Vue 3 + TypeScript + Vite 前端，包含登录、路由守卫、响应式布局和系统工作台
 - Spring Boot 3 + Java 17 后端，包含 PostgreSQL、MyBatis Plus、JWT 登录、Swagger、健康检查和统一异常响应
@@ -16,8 +16,12 @@ Phase 1–2 已实现：
 - 名称、关键词、摘要、区域、年份、类型和处理状态组合检索与分页
 - 鉴权文件预览/下载，服务端存储路径不会暴露给浏览器
 - `/documents` 响应式资料资源池、上传表单、元数据编辑、状态切换和在线预览界面
+- PDF、DOCX、TXT 与图片的正文提取；扫描 PDF 和图片通过 PaddleOCR 本地识别
+- 标题/章节识别、文本清洗、按页码分块及 `document_chunk` 持久化
+- Spring Boot 异步解析编排、进度与失败原因记录，以及 AI 服务 multipart 调用
+- `/parsing` 任务队列与 `/documents/{id}/parse` 原件/解析文本对照页面
 
-后续将严格按 Phase 3–8 实现文档解析、实体关系抽取、术语标准化、GIS 空间化、知识图谱、智能问答和成果导出。
+后续将严格按 Phase 4–8 实现实体关系抽取、术语标准化、GIS 空间化、知识图谱、智能问答和成果导出。
 
 ## 系统架构
 
@@ -68,6 +72,7 @@ psql -U postgres -d geotext -f database/init.sql
 
 ```powershell
 psql -U postgres -d geotext -f database/migrations/V002__document_resource_pool.sql
+psql -U postgres -d geotext -f database/migrations/V003__intelligent_document_parsing.sql
 ```
 
 上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOC/DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。
@@ -91,6 +96,8 @@ python -m venv .venv
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
+
+PaddleOCR 与 PaddlePaddle 由 `requirements.txt` 安装，首次识别会下载所需模型。可通过 `OCR_LANGUAGE`（默认 `ch`）、`OCR_DEVICE`（默认 `cpu`）和 `PARSE_CHUNK_SIZE` 调整解析行为。DOCX 使用 `python-docx` 解析；旧版二进制 `.doc` 文件请先另存为 DOCX。
 
 - 健康检查：`http://localhost:8000/api/v1/health`
 - OpenAPI 文档：`http://localhost:8000/docs`
@@ -133,4 +140,4 @@ pytest
 
 详细接口以 Spring Boot Swagger 和 FastAPI `/docs` 为准。
 
-Phase 2 接口说明见 [`docs/api.md`](docs/api.md)。
+Phase 1–3 接口说明见 [`docs/api.md`](docs/api.md)。

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, EditPen, Search, UploadFilled, View } from '@element-plus/icons-vue'
+import { Delete, EditPen, MagicStick, Search, UploadFilled, View } from '@element-plus/icons-vue'
 import {
   deleteDocument,
   fetchDocumentFile,
@@ -14,6 +15,7 @@ import {
 } from '@/api/documents'
 
 const loading = ref(false)
+const router = useRouter()
 const records = ref<GeologicalDocument[]>([])
 const total = ref(0)
 const filters = reactive({ query: '', type: '', status: '', region: '', year: undefined as number | undefined, page: 1, size: 10 })
@@ -92,6 +94,10 @@ function openEdit(document: GeologicalDocument) {
   editingId.value = document.id
   Object.assign(editForm, { name: document.name, region: document.region ?? '', year: document.year, keyword: document.keyword ?? '', summary: document.summary ?? '' })
   editOpen.value = true
+}
+
+function openParsing(document: GeologicalDocument) {
+  router.push({ name: 'document-parse', params: { id: document.id } })
 }
 
 async function submitEdit() {
@@ -174,7 +180,7 @@ onBeforeUnmount(() => { if (previewUrl.value) URL.revokeObjectURL(previewUrl.val
         <el-table-column label="大小" width="85"><template #default="{ row }">{{ formatSize(row.fileSize) }}</template></el-table-column>
         <el-table-column label="状态" width="125"><template #default="{ row }"><el-select :model-value="row.status" size="small" @change="(value: GeologicalDocument['status']) => changeStatus(row, value)"><el-option v-for="(label, value) in statusLabels" :key="value" :label="label" :value="value"><el-tag :type="statusTypes[value]" size="small" effect="plain">{{ label }}</el-tag></el-option></el-select></template></el-table-column>
         <el-table-column label="入库日期" width="118"><template #default="{ row }">{{ new Date(row.createTime).toLocaleDateString('zh-CN') }}</template></el-table-column>
-        <el-table-column label="操作" width="130"><template #default="{ row }"><div class="row-actions"><el-tooltip content="预览"><button type="button" @click="preview(row)"><el-icon><View /></el-icon></button></el-tooltip><el-tooltip content="编辑"><button type="button" @click="openEdit(row)"><el-icon><EditPen /></el-icon></button></el-tooltip><el-tooltip content="删除"><button class="danger" type="button" @click="remove(row)"><el-icon><Delete /></el-icon></button></el-tooltip></div></template></el-table-column>
+        <el-table-column label="操作" width="165"><template #default="{ row }"><div class="row-actions"><el-tooltip content="智能解析"><button type="button" aria-label="智能解析" @click="openParsing(row)"><el-icon><MagicStick /></el-icon></button></el-tooltip><el-tooltip content="预览"><button type="button" aria-label="预览" @click="preview(row)"><el-icon><View /></el-icon></button></el-tooltip><el-tooltip content="编辑"><button type="button" aria-label="编辑" @click="openEdit(row)"><el-icon><EditPen /></el-icon></button></el-tooltip><el-tooltip content="删除"><button class="danger" type="button" aria-label="删除" @click="remove(row)"><el-icon><Delete /></el-icon></button></el-tooltip></div></template></el-table-column>
       </el-table>
       <el-pagination v-if="total > filters.size" v-model:current-page="filters.page" v-model:page-size="filters.size" background layout="prev, pager, next" :total="total" @current-change="loadDocuments" />
     </section>

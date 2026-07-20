@@ -6,11 +6,14 @@ import com.cug.geotext.dto.DocumentQuery;
 import com.cug.geotext.dto.DocumentStatusRequest;
 import com.cug.geotext.dto.PageResult;
 import com.cug.geotext.entity.GeologicalDocument;
+import com.cug.geotext.entity.DocumentChunk;
 import com.cug.geotext.service.DocumentService;
+import com.cug.geotext.service.DocumentParsingService;
 import jakarta.validation.Valid;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.util.List;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -34,7 +37,11 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/documents")
 public class DocumentController {
     private final DocumentService documentService;
-    public DocumentController(DocumentService documentService) { this.documentService = documentService; }
+    private final DocumentParsingService parsingService;
+    public DocumentController(DocumentService documentService, DocumentParsingService parsingService) {
+        this.documentService = documentService;
+        this.parsingService = parsingService;
+    }
 
     @GetMapping
     public ApiResponse<PageResult<GeologicalDocument>> list(@Valid @ModelAttribute DocumentQuery query) {
@@ -67,6 +74,21 @@ public class DocumentController {
     public ApiResponse<Void> delete(@PathVariable long id) {
         documentService.delete(id);
         return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/{id}/parse")
+    public ResponseEntity<ApiResponse<DocumentParsingService.ParseStatus>> parse(@PathVariable long id) {
+        return ResponseEntity.accepted().body(ApiResponse.ok(parsingService.start(id)));
+    }
+
+    @GetMapping("/{id}/parse/status")
+    public ApiResponse<DocumentParsingService.ParseStatus> parseStatus(@PathVariable long id) {
+        return ApiResponse.ok(parsingService.status(id));
+    }
+
+    @GetMapping("/{id}/chunks")
+    public ApiResponse<List<DocumentChunk>> chunks(@PathVariable long id) {
+        return ApiResponse.ok(parsingService.chunks(id));
     }
 
     @GetMapping("/{id}/preview")

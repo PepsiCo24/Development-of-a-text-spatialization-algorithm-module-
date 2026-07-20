@@ -18,3 +18,12 @@ def test_openapi_is_available() -> None:
     assert response.status_code == 200
     assert response.json()["info"]["title"] == "GeoText AI Service"
 
+
+def test_text_document_parse_endpoint() -> None:
+    response = client.post(
+        "/api/v1/documents/parse",
+        files={"file": ("survey.txt", "第一章 地层\n\n寒武系灰岩厚约120米。".encode(), "text/plain")},
+    )
+    assert response.status_code == 200
+    assert response.json()["document_type"] == "TXT"
+    assert response.json()["chunks"][0]["chapter_title"] == "第一章 地层"

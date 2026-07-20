@@ -12,6 +12,8 @@ const router = createRouter({
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
         { path: 'documents', name: 'documents', component: () => import('@/views/DocumentsView.vue') },
+        { path: 'documents/:id/parse', name: 'document-parse', component: () => import('@/views/DocumentParseView.vue') },
+        { path: 'parsing', name: 'parsing', component: () => import('@/views/ParsingQueueView.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

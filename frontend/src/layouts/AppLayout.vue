@@ -17,7 +17,7 @@ const signOut = () => { auth.logout(); router.push('/login') }
       <nav aria-label="主导航">
         <router-link to="/dashboard"><el-icon><DataAnalysis /></el-icon><span>工作台</span></router-link>
         <router-link to="/documents"><el-icon><Document /></el-icon><span>资料资源池</span><small>Phase 2</small></router-link>
-        <a class="is-disabled"><el-icon><Opportunity /></el-icon><span>智能解析</span><small>Phase 3</small></a>
+        <router-link to="/parsing"><el-icon><Opportunity /></el-icon><span>智能解析</span><small>Phase 3</small></router-link>
         <a class="is-disabled"><el-icon><MapLocation /></el-icon><span>空间地图</span><small>Phase 6</small></a>
         <a class="is-disabled"><el-icon><Setting /></el-icon><span>系统管理</span><small>Phase 8</small></a>
       </nav>

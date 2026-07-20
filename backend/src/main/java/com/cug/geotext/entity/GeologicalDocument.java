@@ -21,6 +21,11 @@ public class GeologicalDocument {
     private String originalName;
     private String contentType;
     private String status;
+    private Integer parseProgress;
+    private String errorMessage;
+    private Integer pageCount;
+    private Integer chunkCount;
+    private OffsetDateTime parsedAt;
     private Long fileSize;
     @JsonIgnore
     private Long createdBy;
@@ -49,6 +54,16 @@ public class GeologicalDocument {
     public void setContentType(String contentType) { this.contentType = contentType; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public Integer getParseProgress() { return parseProgress; }
+    public void setParseProgress(Integer parseProgress) { this.parseProgress = parseProgress; }
+    public String getErrorMessage() { return errorMessage; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public Integer getPageCount() { return pageCount; }
+    public void setPageCount(Integer pageCount) { this.pageCount = pageCount; }
+    public Integer getChunkCount() { return chunkCount; }
+    public void setChunkCount(Integer chunkCount) { this.chunkCount = chunkCount; }
+    public OffsetDateTime getParsedAt() { return parsedAt; }
+    public void setParsedAt(OffsetDateTime parsedAt) { this.parsedAt = parsedAt; }
     public Long getFileSize() { return fileSize; }
     public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
     public Long getCreatedBy() { return createdBy; }

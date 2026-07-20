@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS document (
     original_name   VARCHAR(255) NOT NULL,
     content_type    VARCHAR(150) NOT NULL,
     status          VARCHAR(32) NOT NULL DEFAULT 'UPLOADED',
+    parse_progress  INTEGER NOT NULL DEFAULT 0 CHECK (parse_progress BETWEEN 0 AND 100),
+    error_message   TEXT,
+    page_count      INTEGER NOT NULL DEFAULT 0,
+    chunk_count     INTEGER NOT NULL DEFAULT 0,
+    parsed_at       TIMESTAMPTZ,
     file_size       BIGINT NOT NULL DEFAULT 0,
     created_by      BIGINT REFERENCES app_user(id),
     create_time     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -33,6 +38,22 @@ CREATE TABLE IF NOT EXISTS document (
 
 CREATE INDEX IF NOT EXISTS idx_document_status ON document(status);
 CREATE INDEX IF NOT EXISTS idx_document_region_year ON document(region, year);
+
+CREATE TABLE IF NOT EXISTS document_chunk (
+    id              BIGSERIAL PRIMARY KEY,
+    document_id     BIGINT NOT NULL REFERENCES document(id) ON DELETE CASCADE,
+    chunk_index     INTEGER NOT NULL,
+    chapter_title   VARCHAR(255),
+    content         TEXT NOT NULL,
+    page_start      INTEGER NOT NULL,
+    page_end        INTEGER NOT NULL,
+    char_count      INTEGER NOT NULL,
+    create_time     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(document_id, chunk_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_chunk_document ON document_chunk(document_id, chunk_index);
+CREATE INDEX IF NOT EXISTS idx_document_chunk_content_fts ON document_chunk USING GIN (to_tsvector('simple', content));
 
 CREATE TABLE IF NOT EXISTS system_log (
     id              BIGSERIAL PRIMARY KEY,

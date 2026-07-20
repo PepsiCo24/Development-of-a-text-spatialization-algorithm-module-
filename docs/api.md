@@ -65,6 +65,45 @@
 
 删除数据库记录和对应的服务器文件。
 
+## 智能文档解析
+
+### `POST /api/documents/{id}/parse`
+
+创建异步解析任务，成功受理时返回 HTTP 202。业务服务读取受控存储中的原文件并发送给 AI 服务，不接受客户端提供的任意文件路径。已在解析中的资料不会重复创建任务。
+
+### `GET /api/documents/{id}/parse/status`
+
+返回资料当前的 `status`、`progress`、`pageCount`、`chunkCount`、`errorMessage` 和 `parsedAt`。状态在 `UPLOADED`、`PARSING`、`PARSED`、`FAILED` 间流转。
+
+### `GET /api/documents/{id}/chunks`
+
+按 `chunkIndex` 返回持久化文本块。每块包含章节标题、正文、起止页码和字符数，可用于原文追溯及后续实体识别。
+
+### `POST /api/v1/documents/parse`
+
+AI 服务的内部解析接口，使用 `multipart/form-data`，文件字段名为 `file`。支持 PDF、DOCX、TXT、PNG/JPEG/TIFF；旧版 `.doc` 需先转换为 DOCX。
+
+响应示例：
+
+```json
+{
+  "filename": "survey.pdf",
+  "document_type": "PDF",
+  "page_count": 12,
+  "warnings": [],
+  "chunks": [
+    {
+      "chunk_index": 0,
+      "chapter_title": "第一章 区域地质概况",
+      "content": "调查区位于……",
+      "page_start": 1,
+      "page_end": 2,
+      "char_count": 1860
+    }
+  ]
+}
+```
+
 ## 健康检查
 
 - Spring Boot：`GET /api/health`

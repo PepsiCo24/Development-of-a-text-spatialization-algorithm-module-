@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     ai_service_host: str = "0.0.0.0"
     ai_service_port: int = 8000
     backend_cors_origins: list[str] = ["http://localhost:5173"]
+    ocr_language: str = "ch"
+    ocr_device: str = "cpu"
+    parse_chunk_size: int = 1200
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -17,4 +20,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
