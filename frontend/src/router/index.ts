@@ -19,6 +19,7 @@ const router = createRouter({
         { path: 'knowledge', name: 'knowledge', component: () => import('@/views/KnowledgeQueueView.vue') },
         { path: 'documents/:id/knowledge', name: 'document-knowledge', component: () => import('@/views/KnowledgeExtractionView.vue') },
         { path: 'dictionary', name: 'dictionary', component: () => import('@/views/DictionaryView.vue') },
+        { path: 'map', name: 'map', component: () => import('@/views/SpatialMapView.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

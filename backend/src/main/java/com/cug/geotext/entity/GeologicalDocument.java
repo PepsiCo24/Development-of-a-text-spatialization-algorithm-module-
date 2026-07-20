@@ -38,6 +38,12 @@ public class GeologicalDocument {
     private Integer relationCount;
     private Integer normalizedCount;
     private OffsetDateTime knowledgeExtractedAt;
+    private String spatialStatus;
+    private Integer spatialProgress;
+    private String spatialError;
+    private String spatialWarnings;
+    private Integer spatialObjectCount;
+    private OffsetDateTime spatialExtractedAt;
     private Long fileSize;
     @JsonIgnore
     private Long createdBy;
@@ -100,6 +106,18 @@ public class GeologicalDocument {
     public void setNormalizedCount(Integer normalizedCount) { this.normalizedCount = normalizedCount; }
     public OffsetDateTime getKnowledgeExtractedAt() { return knowledgeExtractedAt; }
     public void setKnowledgeExtractedAt(OffsetDateTime knowledgeExtractedAt) { this.knowledgeExtractedAt = knowledgeExtractedAt; }
+    public String getSpatialStatus() { return spatialStatus; }
+    public void setSpatialStatus(String spatialStatus) { this.spatialStatus = spatialStatus; }
+    public Integer getSpatialProgress() { return spatialProgress; }
+    public void setSpatialProgress(Integer spatialProgress) { this.spatialProgress = spatialProgress; }
+    public String getSpatialError() { return spatialError; }
+    public void setSpatialError(String spatialError) { this.spatialError = spatialError; }
+    public String getSpatialWarnings() { return spatialWarnings; }
+    public void setSpatialWarnings(String spatialWarnings) { this.spatialWarnings = spatialWarnings; }
+    public Integer getSpatialObjectCount() { return spatialObjectCount; }
+    public void setSpatialObjectCount(Integer spatialObjectCount) { this.spatialObjectCount = spatialObjectCount; }
+    public OffsetDateTime getSpatialExtractedAt() { return spatialExtractedAt; }
+    public void setSpatialExtractedAt(OffsetDateTime spatialExtractedAt) { this.spatialExtractedAt = spatialExtractedAt; }
     public Long getFileSize() { return fileSize; }
     public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
     public Long getCreatedBy() { return createdBy; }

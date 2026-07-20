@@ -41,6 +41,7 @@ public class KnowledgeExtractionService {
         GeologicalDocument document = documentService.get(documentId);
         if (!"COMPLETED".equals(document.getEntityStatus())) throw new BusinessException(409, "请先完成地质实体识别");
         if ("EXTRACTING".equals(document.getKnowledgeStatus())) throw new BusinessException(409, "属性关系抽取正在进行中");
+        document.setSpatialStatus("PENDING");document.setSpatialProgress(0);document.setSpatialError(null);document.setSpatialWarnings(null);document.setSpatialObjectCount(0);document.setSpatialExtractedAt(null);
         updateState(document, "EXTRACTING", 5, null);
         executor.execute(() -> extract(documentId, provider));
         return status(documentId);

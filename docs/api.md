@@ -163,3 +163,25 @@ AI 服务内部接口。属性类型限制为 `AGE`、`THICKNESS`、`SCALE`、`G
 - `DELETE /api/dictionary/{id}`：删除词典条目
 
 别名使用 `|` 分隔。实体标准化结果包括 `EXACT`（原名即标准名）、`ALIAS`（别名匹配）和 `UNMATCHED`（保留原名称）。
+
+## 文本空间化与 GIS
+
+### `POST /api/documents/{id}/spatial/extract`
+
+对已完成知识抽取的资料创建异步空间化任务。请求体为 `{ "provider": "deepseek" }` 或 `qwen`。业务服务将来源文本块和已识别实体发送至 AI 服务，成功受理时返回 HTTP 202。
+
+### `GET /api/documents/{id}/spatial/status`
+
+返回 `PENDING`、`EXTRACTING`、`COMPLETED` 或 `FAILED` 状态，以及进度、空间对象数量、警告、错误信息和完成时间。
+
+### `GET /api/spatial-objects`
+
+返回可上图空间对象；可使用 `documentId` 限定资料。每项包含对象类型、GeoJSON、中心坐标、置信度、来源资料、页码、原文和地名解析来源。
+
+### `GET /api/spatial-objects/{id}`
+
+返回单个空间对象详情，用于地图点击核查和来源追溯。
+
+### `POST /api/v1/spatial/extract`
+
+AI 服务内部接口。空间对象类型限制为 `PLACE`、`COORDINATE`、`MINERAL_POINT`、`BOREHOLE`、`FAULT`、`SURVEY_AREA`，几何限制为符合 WGS 84 范围的 `Point`、`LineString`、`Polygon`。模型只能引用请求中存在的实体和文本块；无法确认坐标的对象返回警告，不凭空生成几何。

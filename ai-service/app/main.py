@@ -5,6 +5,7 @@ from app.api.health import router as health_router
 from app.api.documents import router as documents_router
 from app.api.entities import router as entities_router
 from app.api.knowledge import router as knowledge_router
+from app.api.spatial import router as spatial_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -27,6 +28,7 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(entities_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")
+app.include_router(spatial_router, prefix="/api/v1")
 
 
 @app.get("/", include_in_schema=False)

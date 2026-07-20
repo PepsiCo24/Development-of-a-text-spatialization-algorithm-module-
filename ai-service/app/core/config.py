@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "GeoText AI Service"
-    app_version: str = "0.5.0"
+    app_version: str = "0.6.0"
     app_env: str = "development"
     ai_service_host: str = "0.0.0.0"
     ai_service_port: int = 8000
@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.1
     llm_timeout_seconds: float = 120.0
     llm_max_tokens: int = 4096
+    geocoding_enabled: bool = True
+    geocoding_base_url: str = "https://nominatim.openstreetmap.org"
+    geocoding_user_agent: str = "GeoText-Spatialization/0.6"
+    geocoding_timeout_seconds: float = 20.0
+    geocoding_min_interval_seconds: float = 1.0
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

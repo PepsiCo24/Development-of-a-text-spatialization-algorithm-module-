@@ -1,6 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE IF NOT EXISTS app_user (
     id              BIGSERIAL PRIMARY KEY,
@@ -42,6 +43,12 @@ CREATE TABLE IF NOT EXISTS document (
     relation_count INTEGER NOT NULL DEFAULT 0,
     normalized_count INTEGER NOT NULL DEFAULT 0,
     knowledge_extracted_at TIMESTAMPTZ,
+    spatial_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    spatial_progress INTEGER NOT NULL DEFAULT 0 CHECK (spatial_progress BETWEEN 0 AND 100),
+    spatial_error TEXT,
+    spatial_warnings TEXT,
+    spatial_object_count INTEGER NOT NULL DEFAULT 0,
+    spatial_extracted_at TIMESTAMPTZ,
     file_size       BIGINT NOT NULL DEFAULT 0,
     created_by      BIGINT REFERENCES app_user(id),
     create_time     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -120,6 +127,18 @@ CREATE TABLE IF NOT EXISTS entity_relation (
     CHECK (source_entity_id <> target_entity_id)
 );
 CREATE INDEX IF NOT EXISTS idx_entity_relation_document ON entity_relation(document_id, relation_type);
+
+CREATE TABLE IF NOT EXISTS spatial_object (
+    id BIGSERIAL PRIMARY KEY, document_id BIGINT NOT NULL REFERENCES document(id) ON DELETE CASCADE,
+    entity_id BIGINT REFERENCES entity(id) ON DELETE SET NULL, chunk_id BIGINT REFERENCES document_chunk(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL, object_type VARCHAR(64) NOT NULL, geometry_type VARCHAR(32) NOT NULL,
+    geojson JSONB NOT NULL, geometry geometry(Geometry,4326) NOT NULL,
+    confidence NUMERIC(5,4) NOT NULL CHECK (confidence BETWEEN 0 AND 1), source_text TEXT NOT NULL, page INTEGER NOT NULL,
+    geocoding_source VARCHAR(128), provider VARCHAR(32) NOT NULL, model VARCHAR(128) NOT NULL,
+    create_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_spatial_object_document ON spatial_object(document_id,object_type);
+CREATE INDEX IF NOT EXISTS idx_spatial_object_geometry ON spatial_object USING GIST(geometry);
 
 CREATE TABLE IF NOT EXISTS system_log (
     id              BIGSERIAL PRIMARY KEY,

@@ -44,6 +44,7 @@ public class EntityExtractionService {
         if ("EXTRACTING".equals(document.getEntityStatus())) throw new BusinessException(409, "实体识别正在进行中");
         document.setKnowledgeStatus("PENDING"); document.setKnowledgeProgress(0); document.setKnowledgeError(null);
         document.setAttributeCount(0); document.setRelationCount(0); document.setNormalizedCount(0); document.setKnowledgeExtractedAt(null);
+        document.setSpatialStatus("PENDING"); document.setSpatialProgress(0); document.setSpatialError(null); document.setSpatialWarnings(null); document.setSpatialObjectCount(0); document.setSpatialExtractedAt(null);
         List<DocumentChunk> chunks = chunkService.list(documentId);
         if (chunks.isEmpty()) throw new BusinessException(409, "文档没有可识别的文本块");
         updateState(document, "EXTRACTING", 5, null);

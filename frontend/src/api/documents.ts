@@ -28,6 +28,12 @@ export interface GeologicalDocument {
   relationCount?: number
   normalizedCount?: number
   knowledgeExtractedAt?: string
+  spatialStatus?: 'PENDING' | 'EXTRACTING' | 'COMPLETED' | 'FAILED'
+  spatialProgress?: number
+  spatialError?: string
+  spatialWarnings?: string
+  spatialObjectCount?: number
+  spatialExtractedAt?: string
   fileSize: number
   createTime: string
   updateTime: string
@@ -108,6 +114,9 @@ export interface KnowledgeStatus { documentId:number; status:'PENDING'|'EXTRACTI
 export interface KnowledgeResult { entities:GeologicalEntity[]; attributes:EntityAttribute[]; relations:EntityRelation[] }
 export interface GeologicalDictionary { id:number; termType:string; standardName:string; aliases?:string; description?:string; enabled:boolean; createTime:string; updateTime:string }
 export type DictionaryInput = Pick<GeologicalDictionary,'termType'|'standardName'> & Partial<Pick<GeologicalDictionary,'aliases'|'description'|'enabled'>>
+export type SpatialObjectType='PLACE'|'COORDINATE'|'MINERAL_POINT'|'BOREHOLE'|'FAULT'|'SURVEY_AREA'
+export interface SpatialObject {id:number;documentId:number;documentName:string;entityId?:number;chunkId?:number;name:string;objectType:SpatialObjectType;geometryType:'Point'|'LineString'|'Polygon';geojson:string;centerLongitude:number;centerLatitude:number;confidence:number;sourceText:string;page:number;geocodingSource?:string;provider:string;model:string;createTime:string}
+export interface SpatialStatus {documentId:number;status:'PENDING'|'EXTRACTING'|'COMPLETED'|'FAILED';progress:number;errorMessage?:string;warnings?:string;objectCount:number;extractedAt?:string}
 
 export interface DocumentFilters {
   query?: string
@@ -194,3 +203,6 @@ export async function listDictionary(params:{query?:string;type?:string}={}):Pro
 export async function createDictionary(data:DictionaryInput):Promise<GeologicalDictionary>{const response=await http.post('/dictionary',data);return response.data.data}
 export async function updateDictionary(id:number,data:DictionaryInput):Promise<GeologicalDictionary>{const response=await http.put(`/dictionary/${id}`,data);return response.data.data}
 export async function deleteDictionary(id:number):Promise<void>{await http.delete(`/dictionary/${id}`)}
+export async function listSpatialObjects(documentId?:number):Promise<SpatialObject[]>{const response=await http.get('/spatial-objects',{params:{documentId}});return response.data.data}
+export async function getSpatialStatus(documentId:number):Promise<SpatialStatus>{const response=await http.get(`/documents/${documentId}/spatial/status`);return response.data.data}
+export async function startSpatialExtraction(documentId:number,provider:'deepseek'|'qwen'):Promise<SpatialStatus>{const response=await http.post(`/documents/${documentId}/spatial/extract`,{provider});return response.data.data}

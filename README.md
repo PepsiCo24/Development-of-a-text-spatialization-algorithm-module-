@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-Phase 1–5 已实现：
+Phase 1–6 已实现：
 
 - Vue 3 + TypeScript + Vite 前端，包含登录、路由守卫、响应式布局和系统工作台
 - Spring Boot 3 + Java 17 后端，包含 PostgreSQL、MyBatis Plus、JWT 登录、Swagger、健康检查和统一异常响应
@@ -30,8 +30,12 @@ Phase 1–5 已实现：
 - 标准名称/别名词典管理，以及实体 `EXACT`、`ALIAS`、`UNMATCHED` 匹配结果
 - `/knowledge` 属性关系核查入口、关系方向视图、属性卡片和术语标准化对照表
 - `/dictionary` 地质词典查询、新增、编辑、启用和删除界面
+- 地名、坐标、矿点、钻孔、断裂和调查区域六类空间信息抽取，并严格校验 Point、LineString、Polygon 几何
+- `spatial_object` 表、PostGIS Geometry(4326) 持久化、空间索引及 V006 数据库迁移脚本
+- OpenLayers 双底图、图层控制、缩放、图例、比例尺、坐标显示、距离与面积量算
+- `/map` 空间化工作台，以及地图对象与来源资料、页码、原文证据的双向联动
 
-后续将严格按 Phase 6–8 实现 GIS 空间化、知识图谱、智能问答和成果导出。
+后续将严格按 Phase 7–8 实现知识图谱、智能问答和成果导出。
 
 ## 系统架构
 
@@ -62,7 +66,7 @@ scripts/        本地启动脚本
 - Node.js 20+ 与 pnpm 9+
 - Java 17 与 Maven 3.9+
 - Python 3.11+
-- PostgreSQL 14+
+- PostgreSQL 14+ 与 PostGIS 3+
 
 本项目按要求不使用 Docker。
 
@@ -85,6 +89,7 @@ psql -U postgres -d geotext -f database/migrations/V002__document_resource_pool.
 psql -U postgres -d geotext -f database/migrations/V003__intelligent_document_parsing.sql
 psql -U postgres -d geotext -f database/migrations/V004__geological_entity_recognition.sql
 psql -U postgres -d geotext -f database/migrations/V005__attributes_relations_dictionary.sql
+psql -U postgres -d geotext -f database/migrations/V006__text_spatialization_gis.sql
 ```
 
 上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOC/DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。
@@ -120,6 +125,8 @@ $env:QWEN_API_KEY="sk-..."
 ```
 
 默认提供商由 `LLM_DEFAULT_PROVIDER=deepseek|qwen` 选择，也可在实体识别页面逐任务切换。API 地址、模型、温度、超时和最大输出长度均可通过 `.env.example` 中的变量覆盖；密钥只在 AI 服务环境中读取，不写入数据库或返回浏览器。
+
+空间化默认通过 `GEOCODING_BASE_URL` 调用地名解析服务，并使用 `GEOCODING_USER_AGENT` 标识请求；可设置 `GEOCODING_ENABLED=false` 禁用外部地名解析。文本中明确给出的坐标和几何优先使用，不会用地名解析结果覆盖。
 
 - 健康检查：`http://localhost:8000/api/v1/health`
 - OpenAPI 文档：`http://localhost:8000/docs`
@@ -162,4 +169,4 @@ pytest
 
 详细接口以 Spring Boot Swagger 和 FastAPI `/docs` 为准。
 
-Phase 1–5 接口说明见 [`docs/api.md`](docs/api.md)。
+Phase 1–6 接口说明见 [`docs/api.md`](docs/api.md)。

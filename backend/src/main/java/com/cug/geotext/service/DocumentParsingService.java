@@ -61,6 +61,12 @@ public class DocumentParsingService {
         document.setRelationCount(0);
         document.setNormalizedCount(0);
         document.setKnowledgeExtractedAt(null);
+        document.setSpatialStatus("PENDING");
+        document.setSpatialProgress(0);
+        document.setSpatialError(null);
+        document.setSpatialWarnings(null);
+        document.setSpatialObjectCount(0);
+        document.setSpatialExtractedAt(null);
         updateState(document, "PARSING", 5, null);
         executor.execute(() -> parse(documentId));
         return status(documentId);

@@ -20,7 +20,7 @@ const signOut = () => { auth.logout(); router.push('/login') }
         <router-link to="/parsing"><el-icon><Opportunity /></el-icon><span>智能解析</span><small>Phase 3</small></router-link>
         <router-link to="/entities"><el-icon><Connection /></el-icon><span>实体识别</span><small>Phase 4</small></router-link>
         <router-link to="/knowledge"><el-icon><Collection /></el-icon><span>知识抽取</span><small>Phase 5</small></router-link>
-        <a class="is-disabled"><el-icon><MapLocation /></el-icon><span>空间地图</span><small>Phase 6</small></a>
+        <router-link to="/map"><el-icon><MapLocation /></el-icon><span>空间地图</span><small>Phase 6</small></router-link>
         <a class="is-disabled"><el-icon><Setting /></el-icon><span>系统管理</span><small>Phase 8</small></a>
       </nav>
       <button class="collapse-button" type="button" @click="collapsed = !collapsed" :aria-label="collapsed ? '展开侧栏' : '收起侧栏'">
