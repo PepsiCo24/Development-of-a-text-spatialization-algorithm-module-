@@ -21,7 +21,7 @@ const router = createRouter({
         { path: 'dictionary', name: 'dictionary', component: () => import('@/views/DictionaryView.vue') },
         { path: 'map', name: 'map', component: () => import('@/views/SpatialMapView.vue') },
         { path: 'graph', name: 'graph', component: () => import('@/views/KnowledgeGraphView.vue') },
-        { path: 'admin', name: 'admin', component: () => import('@/views/SystemAdminView.vue') },
+        { path: 'admin', name: 'admin', component: () => import('@/views/SystemAdminView.vue'), meta: { requiresAdmin: true } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
@@ -31,6 +31,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (!to.meta.public && !auth.authenticated) return { name: 'login', query: { redirect: to.fullPath } }
+  if (to.meta.requiresAdmin && !auth.isAdmin) return { name: 'dashboard' }
   if (to.name === 'login' && auth.authenticated) return { name: 'dashboard' }
 })
 

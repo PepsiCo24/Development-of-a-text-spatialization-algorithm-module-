@@ -22,14 +22,14 @@ const signOut = () => { auth.logout(); router.push('/login') }
         <router-link to="/knowledge"><el-icon><Collection /></el-icon><span>知识抽取</span><small>Phase 5</small></router-link>
         <router-link to="/map"><el-icon><MapLocation /></el-icon><span>空间地图</span><small>Phase 6</small></router-link>
         <router-link to="/graph"><el-icon><Share /></el-icon><span>图谱问答</span><small>Phase 7</small></router-link>
-        <router-link to="/admin"><el-icon><Setting /></el-icon><span>系统管理</span><small>Phase 8</small></router-link>
+        <router-link v-if="auth.isAdmin" to="/admin"><el-icon><Setting /></el-icon><span>系统管理</span><small>Phase 8</small></router-link>
       </nav>
       <button class="collapse-button" type="button" @click="collapsed = !collapsed" :aria-label="collapsed ? '展开侧栏' : '收起侧栏'">
         <el-icon><component :is="collapsed ? MenuIcon : Fold" /></el-icon><span>收起导航</span>
       </button>
     </aside>
     <main class="main-area">
-      <header class="topbar"><div><span class="eyebrow">中国地质大学 · 智能地学</span><strong>基于填图对象智能识别的文本空间化算法模块</strong></div><div class="operator"><span class="status-dot"></span><span>系统运行中</span><button type="button" @click="signOut">退出</button></div></header>
+      <header class="topbar"><div><span class="eyebrow">中国地质大学 · 智能地学</span><strong>基于填图对象智能识别的文本空间化算法模块</strong></div><div class="operator"><span class="status-dot"></span><span>系统运行中</span><span v-if="auth.displayName" class="operator-name">{{ auth.displayName }}</span><strong class="role-badge" :class="{ admin: auth.isAdmin }">{{ auth.roleLabel }}</strong><button type="button" @click="signOut">退出</button></div></header>
       <router-view />
     </main>
   </div>
