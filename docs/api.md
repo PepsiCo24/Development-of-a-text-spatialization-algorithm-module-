@@ -7,6 +7,10 @@
 - 除登录和健康检查外，业务接口必须携带 `Authorization: Bearer <token>`
 - JSON 业务响应统一使用 `code`、`message`、`data`、`timestamp`
 
+## 账号注册
+
+`POST /api/auth/register` 可匿名调用，用于创建普通用户账号。请求体为 `username`、`displayName` 和 `password`；用户名仅支持字母、数字、下划线和短横线，密码至少 8 位。注册成功后返回访问令牌并自动登录，注册账号默认角色为 `USER`，不具备系统管理权限。
+
 ## 身份认证
 
 ### `POST /api/auth/login`

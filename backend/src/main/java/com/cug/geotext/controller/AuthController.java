@@ -1,6 +1,7 @@
 package com.cug.geotext.controller;
 
 import com.cug.geotext.common.ApiResponse;
+import com.cug.geotext.dto.RegisterRequest;
 import com.cug.geotext.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -18,6 +19,11 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<AuthService.LoginResult> login(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.ok(authService.login(request.username(), request.password()));
+    }
+
+    @PostMapping("/register")
+    public ApiResponse<AuthService.LoginResult> register(@Valid @RequestBody RegisterRequest request) {
+        return ApiResponse.ok(authService.register(request));
     }
 
     public record LoginRequest(@NotBlank(message = "请输入用户名") String username, @NotBlank(message = "请输入密码") String password) {}

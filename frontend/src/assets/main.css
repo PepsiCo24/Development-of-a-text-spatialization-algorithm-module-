@@ -45,6 +45,7 @@ button { cursor: pointer; }
 .login-form input:focus { border-color: var(--mineral); box-shadow: 0 2px 0 -1px var(--mineral); }
 .login-form button { width: 100%; margin-top: 14px; border: 0; padding: 15px 18px; display: flex; justify-content: space-between; color: white; background: var(--forest); transition: transform .2s, background .2s; }
 .login-form button:hover { transform: translateY(-2px); background: var(--forest-deep); }.login-form button:focus-visible { outline: 3px solid #efa27f; outline-offset: 3px; }
+.login-form .form-switch { margin-top: 18px; padding: 4px 0; justify-content: center; color: var(--forest); background: transparent; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }.login-form .form-switch:hover { transform: none; color: var(--mineral); background: transparent; }
 .demo-note { display: block; margin-top: 15px; color: #84918d; text-align: center; }
 .app-shell { min-height: 100vh; display: flex; background: #e9ede7; }
 .sidebar { position: fixed; z-index: 10; inset: 0 auto 0 0; width: 244px; padding: 26px 18px 18px; display: flex; flex-direction: column; color: #d4e2dd; background: var(--forest-deep); transition: width .25s; }
