@@ -16,7 +16,7 @@ def test_health_endpoint() -> None:
 def test_openapi_is_available() -> None:
     response = client.get("/openapi.json")
     assert response.status_code == 200
-    assert response.json()["info"]["title"] == "GeoText AI Service"
+    assert response.json()["info"]["title"] == "基于填图对象智能识别的文本空间化算法模块 AI 服务"
 
 
 def test_text_document_parse_endpoint() -> None:

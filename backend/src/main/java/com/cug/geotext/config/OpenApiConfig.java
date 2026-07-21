@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
     @Bean
     OpenAPI geotextOpenApi() {
-        return new OpenAPI().info(new Info().title("GeoText API").version("0.1.0").description("地质文本空间化算法模块接口"));
+        return new OpenAPI().info(new Info().title("基于填图对象智能识别的文本空间化算法模块 API").version("0.1.0").description("地质文本空间化算法模块接口"));
     }
 }
 

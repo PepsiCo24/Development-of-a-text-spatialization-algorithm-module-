@@ -30,7 +30,7 @@ const submit = async () => {
     </section>
     <section class="login-panel">
       <form class="login-form" @submit.prevent="submit">
-        <div class="mobile-brand">GeoText</div><span class="eyebrow">欢迎回来</span><h2>进入地质文本工作台</h2><p>使用数据库账号登录，访问令牌将在八小时后自动失效。</p>
+        <div class="mobile-brand">基于填图对象智能识别的文本空间化算法模块</div><span class="eyebrow">欢迎回来</span><h2>进入地质文本工作台</h2><p>使用数据库账号登录，访问令牌将在八小时后自动失效。</p>
         <label>用户名<input v-model="form.username" autocomplete="username" placeholder="请输入用户名" /></label>
         <label>密码<input v-model="form.password" type="password" autocomplete="current-password" placeholder="请输入密码" /></label>
         <button type="submit" :disabled="loading"><span>{{ loading ? '正在进入…' : '进入系统' }}</span><span aria-hidden="true">↗</span></button>

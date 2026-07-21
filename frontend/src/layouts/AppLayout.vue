@@ -13,7 +13,7 @@ const signOut = () => { auth.logout(); router.push('/login') }
 <template>
   <div class="app-shell">
     <aside class="sidebar" :class="{ collapsed }">
-      <div class="brand-mark"><span class="brand-strata">G</span><div><strong>GeoText</strong><small>地质文本空间化</small></div></div>
+      <div class="brand-mark"><span class="brand-strata">G</span><div><strong>基于填图对象智能识别</strong><small>文本空间化算法模块</small></div></div>
       <nav aria-label="主导航">
         <router-link to="/dashboard"><el-icon><DataAnalysis /></el-icon><span>工作台</span></router-link>
         <router-link to="/documents"><el-icon><Document /></el-icon><span>资料资源池</span><small>Phase 2</small></router-link>
@@ -29,7 +29,7 @@ const signOut = () => { auth.logout(); router.push('/login') }
       </button>
     </aside>
     <main class="main-area">
-      <header class="topbar"><div><span class="eyebrow">中国地质大学 · 智能地学</span><strong>文本空间化算法模块</strong></div><div class="operator"><span class="status-dot"></span><span>系统运行中</span><button type="button" @click="signOut">退出</button></div></header>
+      <header class="topbar"><div><span class="eyebrow">中国地质大学 · 智能地学</span><strong>基于填图对象智能识别的文本空间化算法模块</strong></div><div class="operator"><span class="status-dot"></span><span>系统运行中</span><button type="button" @click="signOut">退出</button></div></header>
       <router-view />
     </main>
   </div>

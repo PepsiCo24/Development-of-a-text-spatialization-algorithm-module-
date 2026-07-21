@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "GeoText AI Service"
+    app_name: str = "基于填图对象智能识别的文本空间化算法模块 AI 服务"
     app_version: str = "1.0.0"
     app_env: str = "development"
     ai_service_host: str = "0.0.0.0"
