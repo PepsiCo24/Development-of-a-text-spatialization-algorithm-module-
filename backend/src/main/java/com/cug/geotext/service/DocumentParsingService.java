@@ -112,7 +112,7 @@ public class DocumentParsingService {
             document.setParseProgress(100);
             document.setPageCount(response.pageCount());
             document.setChunkCount(response.chunks().size());
-            document.setErrorMessage(null);
+            document.setErrorMessage("");
             document.setParsedAt(OffsetDateTime.now());
             document.setUpdateTime(OffsetDateTime.now());
             documentMapper.updateById(document);
@@ -130,7 +130,7 @@ public class DocumentParsingService {
     private void updateState(GeologicalDocument document, String status, int progress, String error) {
         document.setStatus(status);
         document.setParseProgress(progress);
-        document.setErrorMessage(error);
+        document.setErrorMessage(error == null ? "" : error);
         document.setUpdateTime(OffsetDateTime.now());
         documentMapper.updateById(document);
     }
