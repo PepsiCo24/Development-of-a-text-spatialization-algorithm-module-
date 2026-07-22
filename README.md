@@ -210,13 +210,3 @@ pytest
 
 详细接口以 Spring Boot Swagger 和 FastAPI `/docs` 为准。
 
-## 交付资料
-
-- [部署说明](docs/deployment.md)
-- [接口说明](docs/api.md)
-- [测试报告](docs/test-report.md)
-- [Demo 数据](demo-data/README.md)
-- [现场演示教程](docs/demo-tutorial.md)
-- [系统使用指南](docs/user-guide.md)
-- [项目功能演示讲稿](docs/project-demo-speech.md)
-- 系统截图：[空间地图](docs/screenshots/spatial-map.png)、[知识图谱](docs/screenshots/knowledge-graph.png)、[成果与系统控制台](docs/screenshots/system-admin.png)
