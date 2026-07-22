@@ -3,6 +3,7 @@ package com.cug.geotext.storage;
 import com.cug.geotext.common.BusinessException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -56,6 +57,21 @@ public class FileStorageService {
             return new StoredFile(relative.toString().replace('\\', '/'), originalName, TYPES.get(extension), CONTENT_TYPES.get(extension), file.getSize());
         } catch (IOException exception) {
             throw new BusinessException(5001, "文件保存失败");
+        }
+    }
+
+    public StoredFile storeText(String name, String content) {
+        String originalName = StringUtils.cleanPath(name.endsWith(".txt") ? name : name + ".txt");
+        if (originalName.contains("..")) throw new BusinessException(400, "文件名不合法");
+        LocalDate today = LocalDate.now();
+        Path relative = Path.of(String.valueOf(today.getYear()), String.format("%02d", today.getMonthValue()), UUID.randomUUID() + ".txt");
+        Path target = resolve(relative.toString());
+        try {
+            Files.createDirectories(target.getParent());
+            Files.writeString(target, content, StandardCharsets.UTF_8);
+            return new StoredFile(relative.toString().replace('\\', '/'), originalName, "TXT", "text/plain;charset=UTF-8", Files.size(target));
+        } catch (IOException exception) {
+            throw new BusinessException(5001, "文本资料保存失败");
         }
     }
 

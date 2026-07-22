@@ -257,4 +257,12 @@ AI 内部接口为 `POST /api/v1/graph/sync`、`GET /api/v1/graph/nodes`、`GET 
 - `PUT /api/admin/llm-configs`：保存 provider、API 地址、模型、Key、temperature、Prompt 模板和启用状态
 - `POST /api/admin/llm-configs/{id}/apply`：将已保存配置实时应用至 AI 服务
 
+### 人工校核与快速演示
+
+- `POST /api/documents/paste`：将粘贴的地质文本创建为 TXT 资料。
+- `POST|PUT|DELETE /api/documents/{id}/entities[/{entityId}]`：新增、修改或删除人工实体；`PATCH /api/documents/{id}/entities/{entityId}/review` 接收 `PENDING`、`CONFIRMED`、`REJECTED`。
+- 属性和关系使用同样的 `POST|PUT|DELETE /api/documents/{id}/attributes|relations` 及 `/review` 约定。
+- `POST /api/admin/demo-data/restore`：管理员恢复标准钻孔演示资料并自动解析。
+- `POST /api/admin/one-map/push?documentId={id}`：交付该资料的 GeoJSON 到一张图原型；配置 `ONE_MAP_WEBHOOK_URL` 后转发至外部汇聚接口。
+
 AI 运行时接收 `PUT /api/v1/config/provider`，配置会覆盖环境变量中的同名提供商参数；自定义 Prompt 作为内置严格 JSON/证据约束提示词的前缀，不会放宽数据契约。

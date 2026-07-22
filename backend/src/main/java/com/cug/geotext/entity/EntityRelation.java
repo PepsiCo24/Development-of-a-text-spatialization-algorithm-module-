@@ -18,6 +18,7 @@ public class EntityRelation {
     private Integer page;
     private String provider;
     private String model;
+    private String reviewStatus;
     private OffsetDateTime createTime;
     public Long getId(){return id;} public void setId(Long value){id=value;}
     public Long getDocumentId(){return documentId;} public void setDocumentId(Long value){documentId=value;}
@@ -29,5 +30,6 @@ public class EntityRelation {
     public Integer getPage(){return page;} public void setPage(Integer value){page=value;}
     public String getProvider(){return provider;} public void setProvider(String value){provider=value;}
     public String getModel(){return model;} public void setModel(String value){model=value;}
+    public String getReviewStatus(){return reviewStatus;} public void setReviewStatus(String value){reviewStatus=value;}
     public OffsetDateTime getCreateTime(){return createTime;} public void setCreateTime(OffsetDateTime value){createTime=value;}
 }

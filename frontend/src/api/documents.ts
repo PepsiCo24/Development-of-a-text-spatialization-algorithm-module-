@@ -101,6 +101,7 @@ export interface GeologicalEntity {
   dictionaryId?: number
   standardName?: string
   normalizationStatus?: 'PENDING' | 'EXACT' | 'ALIAS' | 'UNMATCHED'
+  reviewStatus?: 'PENDING' | 'CONFIRMED' | 'REJECTED'
   createTime: string
 }
 
@@ -112,11 +113,15 @@ export interface EntityExtractionStatus {
   entityCount: number
   extractedAt?: string
 }
+export interface PastedDocument extends DocumentMetadata { name: string; content: string }
 
 export type AttributeType = 'AGE' | 'THICKNESS' | 'SCALE' | 'GRADE' | 'LITHOLOGY'
 export type RelationType = 'LOCATED_IN' | 'OCCURS_IN' | 'INTRUDES' | 'CONTACTS' | 'CONTROLS' | 'CONTAINS'
-export interface EntityAttribute { id:number; documentId:number; entityId:number; attributeType:AttributeType; originalValue:string; confidence:number; sourceText:string; page:number; provider:string; model:string }
-export interface EntityRelation { id:number; documentId:number; sourceEntityId:number; targetEntityId:number; relationType:RelationType; confidence:number; sourceText:string; page:number; provider:string; model:string }
+export interface EntityAttribute { id:number; documentId:number; entityId:number; attributeType:AttributeType; originalValue:string; confidence:number; sourceText:string; page:number; provider:string; model:string; reviewStatus?:'PENDING'|'CONFIRMED'|'REJECTED' }
+export interface EntityRelation { id:number; documentId:number; sourceEntityId:number; targetEntityId:number; relationType:RelationType; confidence:number; sourceText:string; page:number; provider:string; model:string; reviewStatus?:'PENDING'|'CONFIRMED'|'REJECTED' }
+export type ManualEntity = Omit<GeologicalEntity,'id'|'documentId'|'provider'|'model'|'createTime'|'dictionaryId'|'standardName'|'normalizationStatus'>
+export type ManualAttribute = Omit<EntityAttribute,'id'|'documentId'|'provider'|'model'>
+export type ManualRelation = Omit<EntityRelation,'id'|'documentId'|'provider'|'model'>
 export interface KnowledgeStatus { documentId:number; status:'PENDING'|'EXTRACTING'|'COMPLETED'|'FAILED'; progress:number; errorMessage?:string; attributeCount:number; relationCount:number; normalizedCount:number; extractedAt?:string }
 export interface KnowledgeResult { entities:GeologicalEntity[]; attributes:EntityAttribute[]; relations:EntityRelation[] }
 export interface GeologicalDictionary { id:number; termType:string; standardName:string; aliases?:string; description?:string; enabled:boolean; createTime:string; updateTime:string }
@@ -202,10 +207,27 @@ export async function getDocumentEntities(id: number): Promise<GeologicalEntity[
   const response = await http.get(`/documents/${id}/entities`)
   return response.data.data
 }
+export async function createEntity(id:number,data:ManualEntity):Promise<GeologicalEntity>{return (await http.post(`/documents/${id}/entities`,data)).data.data}
+export async function updateEntity(id:number,entityId:number,data:ManualEntity):Promise<GeologicalEntity>{return (await http.put(`/documents/${id}/entities/${entityId}`,data)).data.data}
+export async function reviewEntity(id:number,entityId:number,reviewStatus:'PENDING'|'CONFIRMED'|'REJECTED'):Promise<GeologicalEntity>{return (await http.patch(`/documents/${id}/entities/${entityId}/review`,{reviewStatus})).data.data}
+export async function deleteEntity(id:number,entityId:number):Promise<void>{await http.delete(`/documents/${id}/entities/${entityId}`)}
+
+export async function pasteDocument(data: PastedDocument): Promise<GeologicalDocument> {
+  const response = await http.post('/documents/paste', data)
+  return response.data.data
+}
 
 export async function startKnowledgeExtraction(id:number, provider:'deepseek'|'qwen'):Promise<KnowledgeStatus>{const response=await http.post(`/documents/${id}/knowledge/extract`,{provider});return response.data.data}
 export async function getKnowledgeStatus(id:number):Promise<KnowledgeStatus>{const response=await http.get(`/documents/${id}/knowledge/status`);return response.data.data}
 export async function getKnowledgeResult(id:number):Promise<KnowledgeResult>{const response=await http.get(`/documents/${id}/knowledge`);return response.data.data}
+export async function createAttribute(id:number,data:ManualAttribute):Promise<EntityAttribute>{return (await http.post(`/documents/${id}/attributes`,data)).data.data}
+export async function updateAttribute(id:number,attributeId:number,data:ManualAttribute):Promise<EntityAttribute>{return (await http.put(`/documents/${id}/attributes/${attributeId}`,data)).data.data}
+export async function reviewAttribute(id:number,attributeId:number,reviewStatus:'PENDING'|'CONFIRMED'|'REJECTED'):Promise<EntityAttribute>{return (await http.patch(`/documents/${id}/attributes/${attributeId}/review`,{reviewStatus})).data.data}
+export async function deleteAttribute(id:number,attributeId:number):Promise<void>{await http.delete(`/documents/${id}/attributes/${attributeId}`)}
+export async function createRelation(id:number,data:ManualRelation):Promise<EntityRelation>{return (await http.post(`/documents/${id}/relations`,data)).data.data}
+export async function updateRelation(id:number,relationId:number,data:ManualRelation):Promise<EntityRelation>{return (await http.put(`/documents/${id}/relations/${relationId}`,data)).data.data}
+export async function reviewRelation(id:number,relationId:number,reviewStatus:'PENDING'|'CONFIRMED'|'REJECTED'):Promise<EntityRelation>{return (await http.patch(`/documents/${id}/relations/${relationId}/review`,{reviewStatus})).data.data}
+export async function deleteRelation(id:number,relationId:number):Promise<void>{await http.delete(`/documents/${id}/relations/${relationId}`)}
 export async function listDictionary(params:{query?:string;type?:string}={}):Promise<GeologicalDictionary[]>{const response=await http.get('/dictionary',{params});return response.data.data}
 export async function createDictionary(data:DictionaryInput):Promise<GeologicalDictionary>{const response=await http.post('/dictionary',data);return response.data.data}
 export async function updateDictionary(id:number,data:DictionaryInput):Promise<GeologicalDictionary>{const response=await http.put(`/dictionary/${id}`,data);return response.data.data}

@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS entity (
     dictionary_id   BIGINT REFERENCES dictionary(id) ON DELETE SET NULL,
     standard_name   VARCHAR(255),
     normalization_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    review_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     create_time     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -121,7 +122,7 @@ CREATE TABLE IF NOT EXISTS entity_attribute (
     entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE, attribute_type VARCHAR(64) NOT NULL,
     original_value VARCHAR(500) NOT NULL, confidence NUMERIC(5,4) NOT NULL CHECK (confidence BETWEEN 0 AND 1),
     source_text TEXT NOT NULL, page INTEGER NOT NULL, provider VARCHAR(32) NOT NULL, model VARCHAR(128) NOT NULL,
-    create_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    review_status VARCHAR(32) NOT NULL DEFAULT 'PENDING', create_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_entity_attribute_document ON entity_attribute(document_id, entity_id);
 
@@ -130,7 +131,7 @@ CREATE TABLE IF NOT EXISTS entity_relation (
     source_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
     target_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE, relation_type VARCHAR(64) NOT NULL,
     confidence NUMERIC(5,4) NOT NULL CHECK (confidence BETWEEN 0 AND 1), source_text TEXT NOT NULL, page INTEGER NOT NULL,
-    provider VARCHAR(32) NOT NULL, model VARCHAR(128) NOT NULL, create_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    provider VARCHAR(32) NOT NULL, model VARCHAR(128) NOT NULL, review_status VARCHAR(32) NOT NULL DEFAULT 'PENDING', create_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CHECK (source_entity_id <> target_entity_id)
 );
 CREATE INDEX IF NOT EXISTS idx_entity_relation_document ON entity_relation(document_id, relation_type);

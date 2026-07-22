@@ -24,6 +24,7 @@ public class GeologicalEntity {
     private Long dictionaryId;
     private String standardName;
     private String normalizationStatus;
+    private String reviewStatus;
     private OffsetDateTime createTime;
 
     public Long getId() { return id; }
@@ -56,6 +57,8 @@ public class GeologicalEntity {
     public void setStandardName(String standardName) { this.standardName = standardName; }
     public String getNormalizationStatus() { return normalizationStatus; }
     public void setNormalizationStatus(String normalizationStatus) { this.normalizationStatus = normalizationStatus; }
+    public String getReviewStatus() { return reviewStatus; }
+    public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
     public OffsetDateTime getCreateTime() { return createTime; }
     public void setCreateTime(OffsetDateTime createTime) { this.createTime = createTime; }
 }

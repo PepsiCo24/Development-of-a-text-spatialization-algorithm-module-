@@ -24,6 +24,7 @@ Phase 1–8 已全部实现：
 - 地层、岩性、岩体、断裂、矿种、矿体、矿化带、地质年代、地名、坐标、品位、厚度、倾向、倾角共十四类实体
 - 实体置信度、来源原文、页码、字符位置和调用模型持久化到 `entity` 表
 - `/entities` 任务入口与原文颜色高亮、类型筛选、点击查看证据详情页面
+- 人工校核闭环：实体、属性、关系支持新增、修改、删除、确认/驳回；实体支持置信度和核验状态筛选
 - 年代、厚度、规模、品位、岩性五类属性的 LLM 抽取与证据持久化
 - 位于、赋存于、侵入、接触、控制、包含六类实体关系的 LLM 抽取
 - `entity_attribute`、`entity_relation`、`dictionary` 数据表和异步知识抽取流程
@@ -41,6 +42,7 @@ Phase 1–8 已全部实现：
 - Excel 多工作表、CSV、JSON 与 GeoJSON 成果导出
 - 用户新增/编辑/启停/删除、全流程任务监控和 AI 调用审计日志
 - DeepSeek/Qwen API 地址、模型、Key、temperature 与 Prompt 模板持久化配置及实时应用
+- 标准演示文本恢复、粘贴文本快速建任务，以及可配置 `ONE_MAP_WEBHOOK_URL` 的“地球科学一张图”GeoJSON 推送接口
 - 三份可直接导入的地质演示资料、批量导入脚本、部署文档、接口文档、系统截图和测试报告
 
 当前版本为科研课题成果展示与专家评审用 `v1.0.0` 完整交付版。
@@ -102,6 +104,13 @@ psql -U postgres -d geotext -f database/migrations/V005__attributes_relations_di
 psql -U postgres -d geotext -f database/migrations/V006__text_spatialization_gis.sql
 psql -U postgres -d geotext -f database/migrations/V007__knowledge_graph_and_rag.sql
 psql -U postgres -d geotext -f database/migrations/V008__system_management_and_llm_config.sql
+psql -U postgres -d geotext -f database/migrations/V009__manual_review_and_demo_support.sql
+```
+
+项目内置的一键迁移命令会按顺序重复执行所有迁移（脚本均为幂等）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\.tools\migrate-db.ps1
 ```
 
 上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOC/DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。
@@ -167,6 +176,12 @@ pnpm dev
 
 打开 `http://localhost:5173`，演示账号为 `admin / admin123`。
 
+若使用项目已准备好的本地运行环境，可一键启动全部服务并自动执行数据库迁移：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\.tools\start-all.ps1
+```
+
 ## 测试与构建
 
 ```powershell
@@ -202,5 +217,6 @@ pytest
 - [测试报告](docs/test-report.md)
 - [Demo 数据](demo-data/README.md)
 - [现场演示教程](docs/demo-tutorial.md)
+- [系统使用指南](docs/user-guide.md)
 - [项目功能演示讲稿](docs/project-demo-speech.md)
 - 系统截图：[空间地图](docs/screenshots/spatial-map.png)、[知识图谱](docs/screenshots/knowledge-graph.png)、[成果与系统控制台](docs/screenshots/system-admin.png)

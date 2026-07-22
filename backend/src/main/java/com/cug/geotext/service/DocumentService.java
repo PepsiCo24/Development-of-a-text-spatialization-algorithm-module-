@@ -6,6 +6,7 @@ import com.cug.geotext.common.BusinessException;
 import com.cug.geotext.dto.DocumentMetadata;
 import com.cug.geotext.dto.DocumentQuery;
 import com.cug.geotext.dto.PageResult;
+import com.cug.geotext.dto.PastedDocumentRequest;
 import com.cug.geotext.entity.AppUser;
 import com.cug.geotext.entity.GeologicalDocument;
 import com.cug.geotext.mapper.AppUserMapper;
@@ -44,6 +45,34 @@ public class DocumentService {
             document.setYear(metadata.year());
             document.setKeyword(trimToNull(metadata.keyword()));
             document.setSummary(trimToNull(metadata.summary()));
+            document.setFilePath(stored.relativePath());
+            document.setOriginalName(stored.originalName());
+            document.setContentType(stored.contentType());
+            document.setFileSize(stored.size());
+            document.setStatus("UPLOADED");
+            AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getUsername, username));
+            if (user != null) document.setCreatedBy(user.getId());
+            document.setCreateTime(OffsetDateTime.now());
+            document.setUpdateTime(OffsetDateTime.now());
+            documentMapper.insert(document);
+            return document;
+        } catch (RuntimeException exception) {
+            storage.delete(stored.relativePath());
+            throw exception;
+        }
+    }
+
+    @Transactional
+    public GeologicalDocument paste(PastedDocumentRequest request, String username) {
+        FileStorageService.StoredFile stored = storage.storeText(request.name().trim(), request.content().trim());
+        try {
+            GeologicalDocument document = new GeologicalDocument();
+            document.setName(request.name().trim());
+            document.setType(stored.type());
+            document.setRegion(trimToNull(request.region()));
+            document.setYear(request.year());
+            document.setKeyword(trimToNull(request.keyword()));
+            document.setSummary(trimToNull(request.summary()));
             document.setFilePath(stored.relativePath());
             document.setOriginalName(stored.originalName());
             document.setContentType(stored.contentType());

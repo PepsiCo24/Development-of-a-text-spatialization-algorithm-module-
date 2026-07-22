@@ -3,7 +3,7 @@ import { computed,onMounted,reactive,ref } from 'vue'
 import { ElMessage,ElMessageBox } from 'element-plus'
 import { Download,Edit,Plus,Refresh,Setting,User } from '@element-plus/icons-vue'
 import { listDocuments,type GeologicalDocument } from '@/api/documents'
-import { deleteUser,downloadExport,listLlmConfigs,listLogs,listTasks,listUsers,saveLlmConfig,saveUser,type AdminUser,type LlmConfig,type SystemLog,type UserInput } from '@/api/admin'
+import { deleteUser,downloadExport,listLlmConfigs,listLogs,listTasks,listUsers,pushToOneMap,restoreDemoData,saveLlmConfig,saveUser,type AdminUser,type LlmConfig,type SystemLog,type UserInput } from '@/api/admin'
 
 type Tab='exports'|'users'|'tasks'|'models'|'logs'
 const tab=ref<Tab>('exports'),loading=ref(true),users=ref<AdminUser[]>([]),tasks=ref<GeologicalDocument[]>([]),configs=ref<LlmConfig[]>([]),logs=ref<SystemLog[]>([]),documents=ref<GeologicalDocument[]>([])
@@ -19,6 +19,8 @@ async function submitUser(){try{await saveUser(userForm,editing.value);ElMessage
 async function removeUser(user:AdminUser){try{await ElMessageBox.confirm(`确认删除用户“${user.displayName}”？`,'删除用户',{type:'warning'});await deleteUser(user.id);users.value=await listUsers()}catch(e){if(e instanceof Error)ElMessage.error(message(e))}}
 async function saveConfig(form:LlmConfig&{apiKey?:string}){try{await saveLlmConfig({provider:form.provider,baseUrl:form.baseUrl,modelName:form.modelName,apiKey:form.apiKey||undefined,temperature:form.temperature,promptTemplate:form.promptTemplate,enabled:form.enabled});ElMessage.success(`${form.provider} 配置已保存并应用`);configs.value=await listLlmConfigs();configForms.value=configs.value.map(c=>({...c,apiKey:''}))}catch(e){ElMessage.error(message(e))}}
 async function runExport(){if(!exportForm.documentId)return;exporting.value=true;try{await downloadExport(exportForm.documentId,exportForm.format,exportForm.dataset);ElMessage.success('成果文件已生成')}catch(e){ElMessage.error(message(e))}finally{exporting.value=false}}
+async function restoreDemo(){try{const doc=await restoreDemoData();ElMessage.success(`已恢复标准演示资料：${doc.name}，解析任务已启动`);await load()}catch(e){ElMessage.error(message(e))}}
+async function pushOneMap(){if(!exportForm.documentId)return;try{const result=await pushToOneMap(exportForm.documentId);ElMessage.success(result.message)}catch(e){ElMessage.error(message(e))}}
 function stage(task:GeologicalDocument){const items=[task.status,task.entityStatus,task.knowledgeStatus,task.spatialStatus,task.graphStatus];if(items.includes('FAILED'))return'FAILED';if(task.graphStatus==='COMPLETED')return'COMPLETED';if(items.some(v=>v==='PARSING'||v==='EXTRACTING'||v==='SYNCING'))return'RUNNING';return'PENDING'}
 function message(e:unknown){return e instanceof Error?e.message:'操作失败'}onMounted(load)
 </script>

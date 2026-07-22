@@ -7,11 +7,13 @@ import {
   deleteDocument,
   fetchDocumentFile,
   listDocuments,
+  pasteDocument,
   updateDocument,
   updateDocumentStatus,
   uploadDocument,
   type DocumentMetadata,
   type GeologicalDocument,
+  type PastedDocument,
 } from '@/api/documents'
 
 const loading = ref(false)
@@ -25,6 +27,9 @@ const uploadLoading = ref(false)
 const selectedFile = ref<File>()
 const fileInput = ref<HTMLInputElement>()
 const uploadForm = reactive<DocumentMetadata>({ name: '', region: '', year: undefined, keyword: '', summary: '' })
+const pasteOpen = ref(false)
+const pasteLoading = ref(false)
+const pastedForm = reactive<PastedDocument>({ name: '矿区地质调查演示资料', region: '鄂东南', year: 2025, keyword: '铁铜矿,断裂,钻孔', summary: '用于系统演示的可直接解析文本。', content: '' })
 
 const editOpen = ref(false)
 const editLoading = ref(false)
@@ -88,6 +93,27 @@ function resetUpload() {
   selectedFile.value = undefined
   Object.assign(uploadForm, { name: '', region: '', year: undefined, keyword: '', summary: '' })
   if (fileInput.value) fileInput.value.value = ''
+}
+
+function applyPreset() {
+  Object.assign(pastedForm, {
+    name: '大冶矿区钻孔记录（演示）', region: '大冶矿区', year: 2025,
+    keyword: '铜铁矿,钻孔,ZK001,断裂', summary: '含地层、岩性、矿体、品位、厚度、坐标和构造关系的演示文本。',
+    content: `大冶矿区钻孔 ZK001 地质记录\n\n钻孔位于大冶矿区铜绿山矿段，孔口坐标为东经114.9300°、北纬30.1100°，孔深 286.50 m。\n\n0—38.20 m 为第四系覆盖层；38.20—126.40 m 为下三叠统大冶组灰岩，灰白色，中厚层状，产状 35°∠58°。126.40—188.70 m 见闪长玢岩，侵入大冶组灰岩。\n\n188.70—214.30 m 为铜铁矿体，厚度 25.60 m，主要矿物为黄铜矿、磁铁矿，铜平均品位 1.26%，铁平均品位 38.40%。矿体受北东向 F1 断裂控制，并赋存于矽卡岩化带。\n\nF1 断裂走向北东，倾向南东，倾角 68°，与闪长玢岩接触带共同控制矿化。`
+  })
+}
+
+async function submitPasted() {
+  if (!pastedForm.name.trim() || !pastedForm.content.trim()) return ElMessage.warning('请填写资料名称和文本内容')
+  pasteLoading.value = true
+  try {
+    const document = await pasteDocument(pastedForm)
+    ElMessage.success('演示文本已创建，可立即进入智能解析')
+    pasteOpen.value = false
+    await loadDocuments()
+    router.push({ name: 'document-parse', params: { id: document.id } })
+  } catch (error) { ElMessage.error(messageOf(error)) }
+  finally { pasteLoading.value = false }
 }
 
 function openEdit(document: GeologicalDocument) {
@@ -159,6 +185,17 @@ onBeforeUnmount(() => { if (previewUrl.value) URL.revokeObjectURL(previewUrl.val
 <template>
   <div class="documents-page">
     <header class="page-intro">
+      <el-button class="paste-demo-action" @click="pasteOpen = true">粘贴文本演示</el-button>
+      <el-dialog v-model="pasteOpen" title="粘贴文本创建演示任务" width="min(760px, 94vw)">
+        <p class="paste-help">可直接粘贴地质文本，或装入预设样例后创建 TXT 资料并跳转到解析页面。</p>
+        <el-button plain @click="applyPreset">装入“大冶矿区钻孔”预设样例</el-button>
+        <el-form label-position="top" class="metadata-form">
+          <div class="form-grid"><el-form-item label="资料名称" required><el-input v-model="pastedForm.name" maxlength="255" /></el-form-item><el-form-item label="所属区域"><el-input v-model="pastedForm.region" /></el-form-item><el-form-item label="资料年份"><el-input-number v-model="pastedForm.year" :min="1800" :max="2100" controls-position="right" /></el-form-item><el-form-item label="关键词"><el-input v-model="pastedForm.keyword" /></el-form-item></div>
+          <el-form-item label="资料摘要"><el-input v-model="pastedForm.summary" type="textarea" :rows="2" maxlength="5000" show-word-limit /></el-form-item>
+          <el-form-item label="地质文本" required><el-input v-model="pastedForm.content" type="textarea" :rows="12" maxlength="500000" show-word-limit placeholder="粘贴需要解析的地质调查、钻孔或矿产资料文本" /></el-form-item>
+        </el-form>
+        <template #footer><el-button @click="pasteOpen = false">取消</el-button><el-button type="primary" :loading="pasteLoading" @click="submitPasted">创建并开始解析</el-button></template>
+      </el-dialog>
       <div><span class="eyebrow">Phase 2 · Geological archive</span><h1>地质资料资源池</h1><p>集中管理报告、区域调查与矿产调查资料，为后续智能解析保留完整来源。</p></div>
       <button class="primary-action" type="button" @click="uploadOpen = true"><el-icon><UploadFilled /></el-icon><span>上传资料</span></button>
     </header>
