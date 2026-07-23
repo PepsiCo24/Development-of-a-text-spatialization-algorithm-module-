@@ -12,5 +12,9 @@ ai-service/.pytest_cache/
 uploads/
 logs/
 .tools/
+/ai-service/tmp/
+/output/
+/tmp/
+~$*
 /04*.pdf
 /04*.docx

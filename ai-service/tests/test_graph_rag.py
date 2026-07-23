@@ -10,7 +10,7 @@ from app.services.graph_store import Neo4jGraphStore
 from app.services.llm_entities import GeologicalEntityExtractor
 from app.services.rag import GeologicalRagService
 from app.services.runtime_config import RuntimeProvider, set_runtime_provider
-from app.services.vector_store import QdrantVectorStore
+from app.services.vector_store import EmbeddingService, QdrantVectorStore
 
 
 class StubEmbedder:
@@ -119,3 +119,27 @@ def test_runtime_provider_configuration_overrides_environment():
     assert provider.model == "qwen-custom"
     assert provider.temperature == 0.4
     assert provider.prompt_template == "严格引用证据"
+
+
+def test_dependency_free_embedding_is_deterministic_and_normalized():
+    embedder = EmbeddingService(Settings())
+    embedder._model = False
+    first, second, different = embedder.encode(["大冶矿区钻孔", "大冶矿区钻孔", "铜绿山矿段"])
+
+    assert len(first) == 1024
+    assert first == second
+    assert first != different
+    assert sum(value * value for value in first) == pytest.approx(1.0)
+
+
+def test_rag_uses_source_evidence_when_remote_model_is_unavailable():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("model temporarily unavailable", request=request)
+
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://llm.test/v1")
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = GeologicalRagService(settings, client, StubVectors(), StubGraph()).ask("矿体受什么控制？", "deepseek", 5)
+
+    assert result.answer.startswith("根据《")
+    assert result.sources
+    assert result.related_entities

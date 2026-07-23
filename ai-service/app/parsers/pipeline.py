@@ -43,10 +43,10 @@ class DocumentParsingPipeline:
     def _parser(self, suffix: str):
         if suffix == ".pdf":
             return PdfParser(self.ocr)
-        if suffix in {".doc", ".docx"}:
-            if suffix == ".doc":
-                raise UnsupportedDocumentError("旧版 DOC 暂不支持直接解析，请另存为 DOCX 后重试")
+        if suffix == ".docx":
             return WordParser()
+        if suffix == ".doc":
+            raise UnsupportedDocumentError("旧版 .doc 已停止接收，请在 Word 中另存为 .docx 后上传")
         if suffix == ".txt":
             return PlainTextParser()
         if suffix in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}:

@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     qwen_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     qwen_model: str = "qwen-plus"
     llm_temperature: float = 0.1
-    llm_timeout_seconds: float = 120.0
+    llm_timeout_seconds: float = 300.0
     llm_max_tokens: int = 4096
+    llm_trust_env_proxy: bool = False
     geocoding_enabled: bool = True
     geocoding_base_url: str = "https://nominatim.openstreetmap.org"
     geocoding_user_agent: str = "GeoText-Spatialization/0.6"

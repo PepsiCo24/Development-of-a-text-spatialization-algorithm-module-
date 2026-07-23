@@ -22,18 +22,20 @@ public class EntityExtractionService {
     private final DocumentService documentService;
     private final DocumentChunkService chunkService;
     private final GeologicalEntityService entityService;
+    private final LlmConfigService llmConfigService;
     private final RestClient aiRestClient;
     private final Executor executor;
 
     public EntityExtractionService(
         GeologicalDocumentMapper documentMapper, DocumentService documentService,
-        DocumentChunkService chunkService, GeologicalEntityService entityService,
+        DocumentChunkService chunkService, GeologicalEntityService entityService, LlmConfigService llmConfigService,
         RestClient aiRestClient, @Qualifier("parsingExecutor") Executor executor
     ) {
         this.documentMapper = documentMapper;
         this.documentService = documentService;
         this.chunkService = chunkService;
         this.entityService = entityService;
+        this.llmConfigService = llmConfigService;
         this.aiRestClient = aiRestClient;
         this.executor = executor;
     }
@@ -47,7 +49,7 @@ public class EntityExtractionService {
         document.setSpatialStatus("PENDING"); document.setSpatialProgress(0); document.setSpatialError(null); document.setSpatialWarnings(null); document.setSpatialObjectCount(0); document.setSpatialExtractedAt(null);document.setGraphStatus("PENDING");document.setGraphProgress(0);document.setGraphError(null);document.setGraphNodeCount(0);document.setGraphRelationCount(0);document.setVectorChunkCount(0);document.setGraphSyncedAt(null);
         List<DocumentChunk> chunks = chunkService.list(documentId);
         if (chunks.isEmpty()) throw new BusinessException(409, "文档没有可识别的文本块");
-        updateState(document, "EXTRACTING", 5, null);
+        updateState(document, "EXTRACTING", 5, "");
         executor.execute(() -> extract(documentId, provider));
         return status(documentId);
     }
@@ -68,7 +70,8 @@ public class EntityExtractionService {
         try {
             document = documentService.get(documentId);
             List<DocumentChunk> chunks = chunkService.list(documentId);
-            updateState(document, "EXTRACTING", 15, null);
+            updateState(document, "EXTRACTING", 15, "");
+            llmConfigService.applyProvider(provider);
             List<Map<String, Object>> requestChunks = chunks.stream().map(chunk -> {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("chunk_id", chunk.getId());
@@ -84,12 +87,12 @@ public class EntityExtractionService {
             AiEntityResponse response = aiRestClient.post().uri("/api/v1/entities/extract")
                 .body(request).retrieve().body(AiEntityResponse.class);
             if (response == null || response.entities() == null) throw new IllegalStateException("AI 服务未返回实体结果");
-            updateState(document, "EXTRACTING", 80, null);
+            updateState(document, "EXTRACTING", 80, "");
             entityService.replace(documentId, response.provider(), response.model(), response.entities());
             document.setEntityStatus("COMPLETED");
             document.setEntityProgress(100);
             document.setEntityCount(response.entities().size());
-            document.setEntityError(null);
+            document.setEntityError("");
             document.setEntityExtractedAt(OffsetDateTime.now());
             document.setUpdateTime(OffsetDateTime.now());
             documentMapper.updateById(document);
@@ -97,7 +100,7 @@ public class EntityExtractionService {
             document = documentMapper.selectById(documentId);
             if (document != null) {
                 String message = exception instanceof RestClientResponseException responseException
-                    ? "AI 实体识别服务返回 HTTP " + responseException.getStatusCode().value()
+                    ? describeAiError(responseException)
                     : exception.getMessage();
                 updateState(document, "FAILED", zero(document.getEntityProgress()), abbreviate(message));
             }
@@ -114,6 +117,11 @@ public class EntityExtractionService {
 
     private int zero(Integer value) { return value == null ? 0 : value; }
     private String defaultStatus(String value) { return value == null ? "PENDING" : value; }
+    private String describeAiError(RestClientResponseException exception) {
+        String body = exception.getResponseBodyAsString();
+        String prefix = "AI 实体识别服务返回 HTTP " + exception.getStatusCode().value();
+        return body == null || body.isBlank() ? prefix : prefix + ": " + body;
+    }
     private String abbreviate(String value) {
         String message = value == null || value.isBlank() ? "地质实体识别失败" : value;
         return message.length() <= 1000 ? message : message.substring(0, 1000);

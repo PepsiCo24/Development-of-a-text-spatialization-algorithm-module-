@@ -1,5 +1,8 @@
 from functools import lru_cache
 from io import BytesIO
+import os
+import sys
+import types
 from typing import Any, Iterable
 
 import numpy as np
@@ -32,15 +35,46 @@ class PaddleOcrService:
     def _engine() -> Any:
         settings = get_settings()
         try:
+            os.environ.setdefault("FLAGS_use_mkldnn", "0")
+            os.environ.setdefault("PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT", "False")
+            # PaddleX imports ModelScope eagerly even when Hugging Face is the
+            # configured model source. On Windows this can pull in an unrelated
+            # PyTorch runtime and make OCR fail before Paddle is initialized.
+            # A minimal optional-provider shim keeps the unused path isolated.
+            if os.getenv("PADDLE_PDX_MODEL_SOURCE", "huggingface").lower() != "modelscope":
+                modelscope = types.ModuleType("modelscope")
+                modelscope.__path__ = []
+                modelscope.snapshot_download = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("ModelScope source is disabled"))
+                hub = types.ModuleType("modelscope.hub"); hub.__path__ = []
+                errors = types.ModuleType("modelscope.hub.errors")
+                errors.NotExistError = type("NotExistError", (RuntimeError,), {})
+                errors.HTTPError = type("HTTPError", (RuntimeError,), {})
+                hub.errors = errors; modelscope.hub = hub
+                sys.modules["modelscope"] = modelscope
+                sys.modules["modelscope.hub"] = hub
+                sys.modules["modelscope.hub.errors"] = errors
             from paddleocr import PaddleOCR
-
-            return PaddleOCR(
-                lang=settings.ocr_language,
-                device=settings.ocr_device,
-                use_doc_orientation_classify=True,
-                use_doc_unwarping=False,
-                use_textline_orientation=True,
-            )
+            try:
+                return PaddleOCR(
+                    lang=settings.ocr_language,
+                    device=settings.ocr_device,
+                    use_doc_orientation_classify=True,
+                    use_doc_unwarping=False,
+                    use_textline_orientation=True,
+                    enable_mkldnn=False,
+                )
+            except (TypeError, ValueError):
+                # PaddleOCR 2.10 is the stable Windows/Python 3.12 runtime used by
+                # this project. Keep the 3.x constructor above for deployments
+                # that already provide PaddleX, and fall back without changing
+                # the public OCR service contract.
+                return PaddleOCR(
+                    lang=settings.ocr_language,
+                    use_angle_cls=True,
+                    use_gpu=settings.ocr_device.lower().startswith("gpu"),
+                    show_log=False,
+                    enable_mkldnn=False,
+                )
         except Exception as exception:
             raise OcrUnavailableError(
                 "PaddleOCR is unavailable. Install paddleocr and a supported inference engine, then verify model access."

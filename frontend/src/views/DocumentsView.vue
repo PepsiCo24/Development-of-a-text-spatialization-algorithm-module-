@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import * as mammoth from 'mammoth/mammoth.browser'
 import { Delete, EditPen, MagicStick, Search, UploadFilled, View } from '@element-plus/icons-vue'
 import {
   deleteDocument,
@@ -43,8 +44,7 @@ const previewDocument = ref<GeologicalDocument>()
 const typeLabels: Record<string, string> = { PDF: 'PDF', WORD: 'Word', TXT: '文本', IMAGE: '图片' }
 const statusLabels: Record<string, string> = { UPLOADED: '待解析', PARSING: '解析中', PARSED: '已解析', FAILED: '异常', ARCHIVED: '已归档' }
 const statusTypes: Record<string, 'info' | 'warning' | 'success' | 'danger'> = { UPLOADED: 'info', PARSING: 'warning', PARSED: 'success', FAILED: 'danger', ARCHIVED: 'info' }
-const accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff'
-const previewable = computed(() => previewDocument.value && previewDocument.value.type !== 'WORD')
+const accept = '.pdf,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff'
 
 async function loadDocuments() {
   loading.value = true
@@ -99,7 +99,7 @@ function applyPreset() {
   Object.assign(pastedForm, {
     name: '大冶矿区钻孔记录（演示）', region: '大冶矿区', year: 2025,
     keyword: '铜铁矿,钻孔,ZK001,断裂', summary: '含地层、岩性、矿体、品位、厚度、坐标和构造关系的演示文本。',
-    content: `大冶矿区钻孔 ZK001 地质记录\n\n钻孔位于大冶矿区铜绿山矿段，孔口坐标为东经114.9300°、北纬30.1100°，孔深 286.50 m。\n\n0—38.20 m 为第四系覆盖层；38.20—126.40 m 为下三叠统大冶组灰岩，灰白色，中厚层状，产状 35°∠58°。126.40—188.70 m 见闪长玢岩，侵入大冶组灰岩。\n\n188.70—214.30 m 为铜铁矿体，厚度 25.60 m，主要矿物为黄铜矿、磁铁矿，铜平均品位 1.26%，铁平均品位 38.40%。矿体受北东向 F1 断裂控制，并赋存于矽卡岩化带。\n\nF1 断裂走向北东，倾向南东，倾角 68°，与闪长玢岩接触带共同控制矿化。`
+    content: `大冶矿区钻孔 ZK001 地质记录\n\n钻孔位于大冶矿区铜绿山矿段，孔口坐标为东经114.9384°、北纬30.0840°（WGS84），孔深 286.50 m。\n\n0—38.20 m 为第四系覆盖层；38.20—126.40 m 为下三叠统大冶组灰岩，灰白色，中厚层状，产状 35°∠58°。126.40—188.70 m 见闪长玢岩，侵入大冶组灰岩。\n\n188.70—214.30 m 为铜铁矿体，厚度 25.60 m，主要矿物为黄铜矿、磁铁矿，铜平均品位 1.26%，铁平均品位 38.40%。矿体受北东向 F1 断裂控制，并赋存于矽卡岩化带。\n\nF1 断裂走向北东，倾向南东，倾角 68°，与闪长玢岩接触带共同控制矿化。`
   })
 }
 
@@ -160,14 +160,14 @@ async function preview(document: GeologicalDocument) {
   previewDocument.value = document
   try {
     const blob = await fetchDocumentFile(document.id)
-    previewUrl.value = URL.createObjectURL(blob)
     if (document.type === 'WORD') {
-      const link = window.document.createElement('a')
-      link.href = previewUrl.value
-      link.download = document.name
-      link.click()
-      ElMessage.info('Word 文件已下载，请使用本地软件查看')
-    } else previewOpen.value = true
+      if (document.originalName.toLowerCase().endsWith('.doc')) return ElMessage.warning('旧版 .doc 无法在线预览，请转换为 .docx 后重新上传')
+      const converted = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() })
+      const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>body{max-width:900px;margin:32px auto;padding:0 28px;font:16px/1.8 "Microsoft YaHei",sans-serif;color:#233d37}img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:6px}</style></head><body>${converted.value}</body></html>`
+      previewUrl.value = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=UTF-8' }))
+      if (converted.messages.length) ElMessage.info('Word 已在线转换，复杂版式可能与原文件略有差异')
+    } else previewUrl.value = URL.createObjectURL(blob)
+    previewOpen.value = true
   } catch (error) { ElMessage.error(messageOf(error)) }
 }
 
@@ -223,13 +223,13 @@ onBeforeUnmount(() => { if (previewUrl.value) URL.revokeObjectURL(previewUrl.val
     </section>
 
     <el-dialog v-model="uploadOpen" title="上传地质资料" width="min(620px, 92vw)" @closed="resetUpload">
-      <div class="file-picker" role="button" tabindex="0" @click="chooseFile" @keydown.enter="chooseFile"><input ref="fileInput" type="file" :accept="accept" @change="onFileSelected" /><el-icon><UploadFilled /></el-icon><strong>{{ selectedFile?.name || '选择 PDF、Word、TXT 或图片' }}</strong><small>{{ selectedFile ? formatSize(selectedFile.size) : '单个文件最大 100 MB' }}</small></div>
+      <div class="file-picker" role="button" tabindex="0" @click="chooseFile" @keydown.enter="chooseFile"><input ref="fileInput" type="file" :accept="accept" @change="onFileSelected" /><el-icon><UploadFilled /></el-icon><strong>{{ selectedFile?.name || '选择 PDF、DOCX、TXT 或图片' }}</strong><small>{{ selectedFile ? formatSize(selectedFile.size) : '旧版 .doc 请先另存为 .docx；单个文件最大 100 MB' }}</small></div>
       <el-form label-position="top" class="metadata-form"><div class="form-grid"><el-form-item label="资料名称"><el-input v-model="uploadForm.name" placeholder="默认使用文件名" maxlength="255" /></el-form-item><el-form-item label="所属区域"><el-input v-model="uploadForm.region" placeholder="例如：鄂东南" /></el-form-item><el-form-item label="资料年份"><el-input-number v-model="uploadForm.year" :min="1800" :max="2100" controls-position="right" /></el-form-item><el-form-item label="关键词"><el-input v-model="uploadForm.keyword" placeholder="多个关键词用逗号分隔" /></el-form-item></div><el-form-item label="摘要"><el-input v-model="uploadForm.summary" type="textarea" :rows="3" placeholder="简要说明资料内容" maxlength="5000" show-word-limit /></el-form-item></el-form>
       <template #footer><el-button @click="uploadOpen = false">取消</el-button><el-button type="primary" :loading="uploadLoading" @click="submitUpload">上传资料</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="editOpen" title="编辑资料信息" width="min(620px, 92vw)"><el-form label-position="top" class="metadata-form"><div class="form-grid"><el-form-item label="资料名称" required><el-input v-model="editForm.name" maxlength="255" /></el-form-item><el-form-item label="所属区域"><el-input v-model="editForm.region" /></el-form-item><el-form-item label="资料年份"><el-input-number v-model="editForm.year" :min="1800" :max="2100" controls-position="right" /></el-form-item><el-form-item label="关键词"><el-input v-model="editForm.keyword" /></el-form-item></div><el-form-item label="摘要"><el-input v-model="editForm.summary" type="textarea" :rows="4" maxlength="5000" show-word-limit /></el-form-item></el-form><template #footer><el-button @click="editOpen = false">取消</el-button><el-button type="primary" :loading="editLoading" @click="submitEdit">保存修改</el-button></template></el-dialog>
 
-    <el-dialog v-model="previewOpen" :title="previewDocument?.name" width="min(1100px, 94vw)" destroy-on-close><div class="document-preview" v-if="previewable"><img v-if="previewDocument?.type === 'IMAGE'" :src="previewUrl" :alt="previewDocument.name" /><iframe v-else :src="previewUrl" :title="previewDocument?.name"></iframe></div></el-dialog>
+    <el-dialog v-model="previewOpen" :title="previewDocument?.name" width="min(1100px, 94vw)" destroy-on-close><div class="document-preview"><img v-if="previewDocument?.type === 'IMAGE'" :src="previewUrl" :alt="previewDocument.name" /><iframe v-else :src="previewUrl" :title="previewDocument?.name" sandbox=""></iframe></div></el-dialog>
   </div>
 </template>

@@ -1,4 +1,7 @@
 from functools import lru_cache
+import hashlib
+import math
+import re
 from typing import Any
 
 import httpx
@@ -14,9 +17,29 @@ class EmbeddingService:
 
     def encode(self, texts: list[str]) -> list[list[float]]:
         if self._model is None:
-            from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(self.settings.embedding_model)
-        return self._model.encode(texts, normalize_embeddings=True).tolist()
+            try:
+                from sentence_transformers import SentenceTransformer
+                self._model = SentenceTransformer(self.settings.embedding_model)
+            except (ImportError, OSError):
+                self._model = False
+        if self._model:
+            return self._model.encode(texts, normalize_embeddings=True).tolist()
+        return [self._hash_embedding(text) for text in texts]
+
+    @staticmethod
+    def _hash_embedding(text: str, dimensions: int = 1024) -> list[float]:
+        """Dependency-free Chinese character/ngram embedding for local demo retrieval."""
+        normalized = re.sub(r"\s+", "", text.lower())
+        tokens = list(normalized) + [normalized[index:index + 2] for index in range(max(0, len(normalized) - 1))]
+        vector = [0.0] * dimensions
+        for token in tokens:
+            digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+            value = int.from_bytes(digest, "big")
+            index = value % dimensions
+            sign = 1.0 if value & 1 else -1.0
+            vector[index] += sign * (1.5 if len(token) > 1 else 1.0)
+        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+        return [value / norm for value in vector]
 
 
 class QdrantVectorStore:

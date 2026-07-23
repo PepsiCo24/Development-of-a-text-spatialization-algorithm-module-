@@ -11,10 +11,15 @@ import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DictionaryService {
+    private static final Set<String> SELF_STANDARD_TYPES = Set.of(
+        "PLACE", "ROCK_BODY", "FAULT", "ORE_BODY", "COORDINATE",
+        "THICKNESS", "GRADE", "DIP_DIRECTION", "DIP_ANGLE"
+    );
     private final GeologicalDictionaryMapper dictionaryMapper;
     private final GeologicalEntityMapper entityMapper;
     public DictionaryService(GeologicalDictionaryMapper dictionaryMapper, GeologicalEntityMapper entityMapper) {
@@ -45,15 +50,16 @@ public class DictionaryService {
             for (GeologicalDictionary item : dictionary) {
                 if (!item.getTermType().equalsIgnoreCase(entity.getEntityType())) continue;
                 if (normalized(item.getStandardName()).equals(name)) { match = item; status = "EXACT"; break; }
-                boolean alias = Arrays.stream((item.getAliases() == null ? "" : item.getAliases()).split("\\|"))
+                boolean alias = Arrays.stream((item.getAliases() == null ? "" : item.getAliases()).split("[|,，;；]"))
                     .map(this::normalized).anyMatch(name::equals);
                 if (alias) { match = item; status = "ALIAS"; break; }
             }
+            if (match == null && SELF_STANDARD_TYPES.contains(entity.getEntityType().toUpperCase(Locale.ROOT))) status = "EXACT";
             entity.setDictionaryId(match == null ? null : match.getId());
-            entity.setStandardName(match == null ? entity.getEntityName() : match.getStandardName());
+            entity.setStandardName(match == null ? canonicalSelf(entity.getEntityName(), entity.getEntityType()) : match.getStandardName());
             entity.setNormalizationStatus(status);
             entityMapper.updateById(entity);
-            if (match != null) matched++;
+            if (match != null || "EXACT".equals(status)) matched++;
         }
         return matched;
     }
@@ -62,5 +68,12 @@ public class DictionaryService {
         item.setAliases(request.aliases() == null ? null : request.aliases().trim()); item.setDescription(request.description());
         item.setEnabled(request.enabled() == null || request.enabled()); item.setUpdateTime(OffsetDateTime.now()); return item;
     }
-    private String normalized(String value) { return value == null ? "" : value.strip().toLowerCase(Locale.ROOT).replaceAll("[\\s·•]", ""); }
+    private String normalized(String value) { return value == null ? "" : value.strip().toLowerCase(Locale.ROOT).replace('—','-').replace('–','-').replaceAll("[\\s·•，,。；;：:（）()]", ""); }
+    private String canonicalSelf(String value, String type) {
+        String result=value==null?"":value.strip().replace('—','–');
+        if ("COORDINATE".equalsIgnoreCase(type)) result=result.replaceAll("\\s+", "");
+        if ("THICKNESS".equalsIgnoreCase(type)) result=result.replaceAll("\\s*([–-])\\s*", "$1").replaceAll("\\s*(?i:m)$", " m");
+        if ("DIP_ANGLE".equalsIgnoreCase(type)) result=result.replaceAll("\\s*°", "°");
+        return result;
+    }
 }

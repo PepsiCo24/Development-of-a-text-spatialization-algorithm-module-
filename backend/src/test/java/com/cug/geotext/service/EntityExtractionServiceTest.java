@@ -28,6 +28,7 @@ class EntityExtractionServiceTest {
         DocumentService documentService = mock(DocumentService.class);
         DocumentChunkService chunkService = mock(DocumentChunkService.class);
         GeologicalEntityService entityService = mock(GeologicalEntityService.class);
+        LlmConfigService llmConfigService = mock(LlmConfigService.class);
         GeologicalDocument document = new GeologicalDocument();
         document.setId(12L); document.setStatus("PARSED"); document.setEntityStatus("PENDING");
         DocumentChunk chunk = new DocumentChunk();
@@ -46,7 +47,7 @@ class EntityExtractionServiceTest {
                 """, MediaType.APPLICATION_JSON));
         Executor direct = Runnable::run;
         EntityExtractionService service = new EntityExtractionService(
-            documentMapper, documentService, chunkService, entityService, builder.build(), direct
+            documentMapper, documentService, chunkService, entityService, llmConfigService, builder.build(), direct
         );
 
         EntityExtractionService.ExtractionStatus result = service.start(12L, "qwen");

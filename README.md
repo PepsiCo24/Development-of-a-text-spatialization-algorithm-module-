@@ -40,9 +40,10 @@ Phase 1–8 已全部实现：
 - `BAAI/bge-m3` 文档块 Embedding 与 Qdrant 向量索引
 - “向量检索 → Neo4j 上下文 → DeepSeek/Qwen”证据约束问答，回答包含实体、空间位置、资料和来源段落
 - Excel 多工作表、CSV、JSON 与 GeoJSON 成果导出
+- 结构化空间化分析报告在线预览与中文 PDF 导出
 - 用户新增/编辑/启停/删除、全流程任务监控和 AI 调用审计日志
 - DeepSeek/Qwen API 地址、模型、Key、temperature 与 Prompt 模板持久化配置及实时应用
-- 标准演示文本恢复、粘贴文本快速建任务，以及可配置 `ONE_MAP_WEBHOOK_URL` 的“地球科学一张图”GeoJSON 推送接口
+- 标准演示数据可确定性恢复全部五类属性、六类关系与 Point/LineString/Polygon 空间对象，以及可配置 `ONE_MAP_WEBHOOK_URL` 的“地球科学一张图”GeoJSON 推送
 - 三份可直接导入的地质演示资料、批量导入脚本、部署文档、接口文档、系统截图和测试报告
 
 当前版本为科研课题成果展示与专家评审用 `v1.0.0` 完整交付版。
@@ -113,7 +114,7 @@ psql -U postgres -d geotext -f database/migrations/V009__manual_review_and_demo_
 powershell -NoProfile -ExecutionPolicy Bypass -File .\.tools\migrate-db.ps1
 ```
 
-上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOC/DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。
+上传文件默认保存在 `uploads/documents/<年>/<月>/`，可用 `DOCUMENT_STORAGE_ROOT` 指定其他目录。支持 PDF、DOCX、TXT、PNG、JPG/JPEG、TIF/TIFF，单文件上限 100 MB。旧版二进制 `.doc` 不再接收，请在 Word 中另存为 `.docx` 后上传。
 
 ### 2. 启动后端
 
@@ -136,6 +137,8 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 PaddleOCR 与 PaddlePaddle 由 `requirements.txt` 安装，首次识别会下载所需模型。可通过 `OCR_LANGUAGE`（默认 `ch`）、`OCR_DEVICE`（默认 `cpu`）和 `PARSE_CHUNK_SIZE` 调整解析行为。DOCX 使用 `python-docx` 解析；旧版二进制 `.doc` 文件请先另存为 DOCX。
+
+Windows 若因项目目录过长导致 Paddle 安装失败，可将依赖安装到短路径：`python -m pip install --target "$env:USERPROFILE\.geotext-ai-packages" -r ai-service\requirements.txt`。`scripts/start-ai.ps1` 会自动加载该目录，并关闭当前 Windows CPU 环境中不兼容的 oneDNN OCR 路径。
 
 实体识别至少配置一个模型服务密钥：
 

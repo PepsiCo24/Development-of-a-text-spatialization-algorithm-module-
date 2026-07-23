@@ -198,7 +198,11 @@ INSERT INTO dictionary (term_type, standard_name, aliases, description) VALUES
 ('LITHOLOGY','灰岩','石灰岩|碳酸钙岩','碳酸盐岩'),
 ('MINERAL','铁','铁矿|Fe','金属矿种'),
 ('MINERAL','铜','铜矿|Cu','金属矿种'),
-('GEOLOGICAL_AGE','燕山期','燕山运动期|燕山时代','中生代构造岩浆活动期')
+('GEOLOGICAL_AGE','燕山期','燕山运动期|燕山时代','中生代构造岩浆活动期'),
+('GEOLOGICAL_AGE','第四系','第四纪|Q','新生代第四纪地层'),
+('GEOLOGICAL_AGE','下三叠统','早三叠世|T1','三叠系下部年代地层单位'),
+('STRATUM','大冶组','大冶组地层|T1d','鄂东南地区三叠系地层单位'),
+('LITHOLOGY','闪长玢岩','闪长斑岩|闪长玢岩体','中性浅成侵入岩')
 ON CONFLICT (term_type, standard_name) DO NOTHING;
 
 COMMIT;

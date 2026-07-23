@@ -21,13 +21,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class FileStorageService {
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "doc", "docx", "txt", "png", "jpg", "jpeg", "tif", "tiff");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "docx", "txt", "png", "jpg", "jpeg", "tif", "tiff");
     private static final Map<String, String> TYPES = Map.ofEntries(
-        Map.entry("pdf", "PDF"), Map.entry("doc", "WORD"), Map.entry("docx", "WORD"), Map.entry("txt", "TXT"),
+        Map.entry("pdf", "PDF"), Map.entry("docx", "WORD"), Map.entry("txt", "TXT"),
         Map.entry("png", "IMAGE"), Map.entry("jpg", "IMAGE"), Map.entry("jpeg", "IMAGE"), Map.entry("tif", "IMAGE"), Map.entry("tiff", "IMAGE")
     );
     private static final Map<String, String> CONTENT_TYPES = Map.ofEntries(
-        Map.entry("pdf", "application/pdf"), Map.entry("doc", "application/msword"),
+        Map.entry("pdf", "application/pdf"),
         Map.entry("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
         Map.entry("txt", "text/plain;charset=UTF-8"), Map.entry("png", "image/png"),
         Map.entry("jpg", "image/jpeg"), Map.entry("jpeg", "image/jpeg"),
@@ -44,7 +44,8 @@ public class FileStorageService {
         String originalName = StringUtils.cleanPath(file.getOriginalFilename() == null ? "document" : file.getOriginalFilename());
         if (originalName.contains("..")) throw new BusinessException(400, "文件名不合法");
         String extension = extension(originalName);
-        if (!ALLOWED_EXTENSIONS.contains(extension)) throw new BusinessException(415, "仅支持 PDF、Word、TXT 和常见图片格式");
+        if ("doc".equals(extension)) throw new BusinessException(415, "旧版 .doc 不支持可靠解析，请在 Word 中另存为 .docx 后上传");
+        if (!ALLOWED_EXTENSIONS.contains(extension)) throw new BusinessException(415, "仅支持 PDF、DOCX、TXT 和常见图片格式");
 
         LocalDate today = LocalDate.now();
         Path relative = Path.of(String.valueOf(today.getYear()), String.format("%02d", today.getMonthValue()), UUID.randomUUID() + "." + extension);

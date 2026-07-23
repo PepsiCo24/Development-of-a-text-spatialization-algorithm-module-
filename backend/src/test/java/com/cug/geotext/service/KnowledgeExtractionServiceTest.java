@@ -29,6 +29,7 @@ class KnowledgeExtractionServiceTest {
         GeologicalDocumentMapper documentMapper=mock(GeologicalDocumentMapper.class); DocumentService documentService=mock(DocumentService.class);
         DocumentChunkService chunkService=mock(DocumentChunkService.class); GeologicalEntityService entityService=mock(GeologicalEntityService.class);
         KnowledgePersistenceService persistence=mock(KnowledgePersistenceService.class); DictionaryService dictionary=mock(DictionaryService.class);
+        LlmConfigService llmConfigService=mock(LlmConfigService.class);
         GeologicalDocument document=new GeologicalDocument(); document.setId(9L); document.setEntityStatus("COMPLETED"); document.setKnowledgeStatus("PENDING");
         DocumentChunk chunk=new DocumentChunk();chunk.setId(20L);chunk.setContent("燕山期花岗岩体侵入寒武系灰岩。");chunk.setPageStart(2);chunk.setPageEnd(2);
         GeologicalEntity rock=entity(30L,20L,"燕山期花岗岩体","ROCK_BODY"),stratum=entity(31L,20L,"寒武系","STRATUM");
@@ -39,7 +40,7 @@ class KnowledgeExtractionServiceTest {
           """)).andRespond(withSuccess("""
           {"provider":"deepseek","model":"deepseek-chat","attributes":[{"entity_id":30,"attribute_type":"AGE","original_value":"燕山期","confidence":0.94,"source_text":"燕山期花岗岩体侵入寒武系灰岩。","page":2}],"relations":[{"source_entity_id":30,"target_entity_id":31,"relation_type":"INTRUDES","confidence":0.97,"source_text":"燕山期花岗岩体侵入寒武系灰岩。","page":2}]}
           """,MediaType.APPLICATION_JSON));
-        Executor direct=Runnable::run;KnowledgeExtractionService service=new KnowledgeExtractionService(documentMapper,documentService,chunkService,entityService,persistence,dictionary,builder.build(),direct);
+        Executor direct=Runnable::run;KnowledgeExtractionService service=new KnowledgeExtractionService(documentMapper,documentService,chunkService,entityService,persistence,dictionary,llmConfigService,builder.build(),direct);
 
         KnowledgeExtractionService.KnowledgeStatus status=service.start(9L,"deepseek");
 

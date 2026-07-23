@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -10,6 +10,10 @@ const loading = ref(false)
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+
+onMounted(() => {
+  if (route.query.reason === 'session-expired') ElMessage.warning('登录状态已失效，请重新登录')
+})
 
 const switchMode = () => {
   mode.value = mode.value === 'login' ? 'register' : 'login'

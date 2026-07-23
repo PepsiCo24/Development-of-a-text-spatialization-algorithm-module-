@@ -26,7 +26,7 @@ import org.springframework.web.client.RestClient;
 class SpatialExtractionServiceTest {
     @Test
     void sendsEvidenceToAiAndPersistsValidatedGeometry(){
-        GeologicalDocumentMapper documentMapper=mock(GeologicalDocumentMapper.class);DocumentService documentService=mock(DocumentService.class);DocumentChunkService chunkService=mock(DocumentChunkService.class);GeologicalEntityService entityService=mock(GeologicalEntityService.class);SpatialObjectService objectService=mock(SpatialObjectService.class);
+        GeologicalDocumentMapper documentMapper=mock(GeologicalDocumentMapper.class);DocumentService documentService=mock(DocumentService.class);DocumentChunkService chunkService=mock(DocumentChunkService.class);GeologicalEntityService entityService=mock(GeologicalEntityService.class);SpatialObjectService objectService=mock(SpatialObjectService.class);LlmConfigService llmConfigService=mock(LlmConfigService.class);
         GeologicalDocument document=new GeologicalDocument();document.setId(6L);document.setRegion("鄂东南");document.setKnowledgeStatus("COMPLETED");document.setSpatialStatus("PENDING");
         DocumentChunk chunk=new DocumentChunk();chunk.setId(12L);chunk.setContent("ZK12孔位于东经114.91度、北纬30.08度。");chunk.setPageStart(4);chunk.setPageEnd(4);
         GeologicalEntity entity=new GeologicalEntity();entity.setId(20L);entity.setChunkId(12L);entity.setEntityName("ZK12孔");entity.setStandardName("ZK12孔");entity.setEntityType("BOREHOLE");
@@ -37,7 +37,7 @@ class SpatialExtractionServiceTest {
           """)).andRespond(withSuccess("""
           {"provider":"qwen","model":"qwen-plus","warnings":[],"objects":[{"name":"ZK12孔","object_type":"BOREHOLE","entity_id":20,"chunk_id":12,"geometry":{"type":"Point","coordinates":[114.91,30.08]},"confidence":0.98,"source_text":"ZK12孔位于东经114.91度、北纬30.08度。","page":4}]}
           """,MediaType.APPLICATION_JSON));
-        Executor direct=Runnable::run;SpatialExtractionService service=new SpatialExtractionService(documentMapper,documentService,chunkService,entityService,objectService,builder.build(),direct);
+        Executor direct=Runnable::run;SpatialExtractionService service=new SpatialExtractionService(documentMapper,documentService,chunkService,entityService,objectService,llmConfigService,builder.build(),direct);
         SpatialExtractionService.SpatialStatus status=service.start(6L,"qwen");
         server.verify();assertThat(status.status()).isEqualTo("COMPLETED");assertThat(status.objectCount()).isEqualTo(1);verify(objectService).replace(eq(6L),any(AiSpatialResponse.class));verify(documentMapper,atLeastOnce()).updateById(document);
     }

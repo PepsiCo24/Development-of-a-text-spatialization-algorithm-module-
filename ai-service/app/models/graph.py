@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 NodeType = Literal["STRATUM", "ROCK_BODY", "STRUCTURE", "ORE_BODY", "MINERAL", "REGION"]
-RelationType = Literal["LOCATED_IN", "CONTAINS", "CONTROLS", "INTRUDES"]
+RelationType = Literal["LOCATED_IN", "OCCURS_IN", "INTRUDES", "CONTACTS", "CONTROLS", "CONTAINS"]
 
 
 class GraphNode(BaseModel):

@@ -4,7 +4,7 @@ from typing import Any
 from app.core.config import Settings, get_settings
 from app.models.graph import GraphNode, GraphRelation
 
-RELATION_TYPES = {"LOCATED_IN", "CONTAINS", "CONTROLS", "INTRUDES"}
+RELATION_TYPES = {"LOCATED_IN", "OCCURS_IN", "INTRUDES", "CONTACTS", "CONTROLS", "CONTAINS"}
 
 
 class Neo4jGraphStore:
@@ -34,12 +34,32 @@ class Neo4jGraphStore:
                 SET r.confidence=row.confidence,r.sourceText=row.source_text,r.page=row.page""", rows=rows, documentId=document_id).consume()
         return len(nodes), len(relations)
 
-    def nodes(self, query: str | None = None, limit: int = 100) -> dict[str, list[dict]]:
-        where = "WHERE toLower(n.name) CONTAINS toLower($query)" if query else ""
+    def nodes(self, query: str | None = None, limit: int = 100, document_id: int | None = None) -> dict[str, list[dict]]:
+        filters = []
+        if query:
+            filters.append("toLower(n.name) CONTAINS toLower($searchText)")
+        if document_id is not None:
+            filters.append("n.documentId = $documentId")
+        where = "WHERE " + " AND ".join(filters) if filters else ""
         cypher = f"MATCH (n:GeologicalEntity) {where} RETURN n ORDER BY n.name LIMIT $limit"
         with self.driver.session(database=self.settings.neo4j_database) as session:
-            nodes = [self._node(record["n"]) for record in session.run(cypher, query=query or "", limit=limit)]
-        return {"nodes": nodes, "links": []}
+            nodes = [self._node(record["n"]) for record in session.run(cypher, searchText=query or "", documentId=document_id, limit=limit)]
+            node_ids = [node["id"] for node in nodes]
+            links = [
+                {
+                    "source": record["source"], "target": record["target"],
+                    "relationType": record["relationType"], "confidence": record["confidence"],
+                    "sourceText": record["sourceText"], "page": record["page"],
+                }
+                for record in session.run(
+                    "MATCH (s:GeologicalEntity)-[r]->(t:GeologicalEntity) "
+                    "WHERE s.entityId IN $nodeIds AND t.entityId IN $nodeIds "
+                    "RETURN s.entityId AS source,t.entityId AS target,type(r) AS relationType,"
+                    "r.confidence AS confidence,r.sourceText AS sourceText,r.page AS page ORDER BY type(r)",
+                    nodeIds=node_ids,
+                )
+            ] if node_ids else []
+        return {"nodes": nodes, "links": links}
 
     def expand(self, entity_id: int, depth: int = 1) -> dict[str, list[dict]]:
         depth = max(1, min(depth, 3))
@@ -63,6 +83,11 @@ class Neo4jGraphStore:
         data = dict(node)
         return {"id":data.get("entityId"),"name":data.get("name"),"nodeType":data.get("nodeType"),"documentId":data.get("documentId"),"sourceText":data.get("sourceText"),"page":data.get("page"),"longitude":data.get("longitude"),"latitude":data.get("latitude")}
 
+    def _relationship(self, relationship) -> dict:
+        source = self._node(relationship.start_node)["id"]
+        target = self._node(relationship.end_node)["id"]
+        return {"source":source,"target":target,"relationType":relationship.type,"confidence":relationship.get("confidence"),"sourceText":relationship.get("sourceText"),"page":relationship.get("page")}
+
     def _paths(self, records) -> dict[str, list[dict]]:
         nodes: dict[int, dict] = {}; links: dict[tuple, dict] = {}
         for record in records:
@@ -70,6 +95,6 @@ class Neo4jGraphStore:
             for node in path.nodes:
                 item = self._node(node); nodes[item["id"]] = item
             for relationship in path.relationships:
-                source = self._node(relationship.start_node)["id"]; target = self._node(relationship.end_node)["id"]
-                links[(source,target,relationship.type)] = {"source":source,"target":target,"relationType":relationship.type,"confidence":relationship.get("confidence"),"sourceText":relationship.get("sourceText"),"page":relationship.get("page")}
+                item = self._relationship(relationship); source = item["source"]; target = item["target"]
+                links[(source,target,relationship.type)] = item
         return {"nodes":list(nodes.values()),"links":list(links.values())}

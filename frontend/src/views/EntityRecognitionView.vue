@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Connection, Refresh } from '@element-plus/icons-vue'
@@ -48,7 +48,7 @@ async function initialize() {
   try {
     const [metadata, textChunks, extractionStatus] = await Promise.all([getDocument(documentId), getDocumentChunks(documentId), getEntityExtractionStatus(documentId)])
     document.value = metadata; chunks.value = textChunks; status.value = extractionStatus
-    if (extractionStatus.status === 'COMPLETED') entities.value = await getDocumentEntities(documentId)
+    if (extractionStatus.status === 'COMPLETED') { entities.value = await getDocumentEntities(documentId); await focusLinkedEntity() }
     if (extractionStatus.status === 'EXTRACTING') schedulePoll()
   } catch (error) { ElMessage.error(messageOf(error)) }
   finally { loading.value = false }
@@ -96,6 +96,17 @@ function segments(chunk: DocumentChunk): Segment[] {
   return result.length ? result : [{ text: chunk.content }]
 }
 function selectEntity(entity: GeologicalEntity) { selected.value = entity }
+async function focusLinkedEntity() {
+  const entityId = Number(route.query.entityId)
+  if (!Number.isFinite(entityId)) return
+  const linked = entities.value.find(item => item.id === entityId)
+  if (!linked) return
+  activeType.value = 'ALL'; activeReview.value = 'ALL'; minConfidence.value = 0; selected.value = linked
+  await nextTick()
+  const mark = Array.from(window.document.querySelectorAll<HTMLButtonElement>('.entity-mark')).find(item => item.textContent?.trim() === linked.entityName)
+  mark?.scrollIntoView({ behavior: 'smooth', block: 'center' }); mark?.focus()
+  ElMessage.success(`已从地图定位到第 ${linked.page} 页原文：${linked.entityName}`)
+}
 function openManual(entity?: GeologicalEntity) {
   editingEntityId.value = entity?.id
   manualForm.value = entity ? { chunkId: entity.chunkId, entityName: entity.entityName, entityType: entity.entityType, confidence: entity.confidence, sourceText: entity.sourceText, page: entity.page, sourceStart: entity.sourceStart, sourceEnd: entity.sourceEnd, reviewStatus: entity.reviewStatus || 'PENDING' } : { chunkId: chunks.value[0]?.id || 0, entityName: '', entityType: 'PLACE', confidence: 0.9, sourceText: chunks.value[0]?.content.slice(0, 120) || '', page: chunks.value[0]?.pageStart || 1, reviewStatus: 'PENDING' }
