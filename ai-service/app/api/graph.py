@@ -1,4 +1,7 @@
+import json
+
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 
 from app.models.graph import GraphSyncRequest, GraphSyncResponse, GraphView, QuestionRequest, QuestionResponse
 from app.services.graph_store import Neo4jGraphStore
@@ -53,3 +56,20 @@ def ask_question(request: QuestionRequest):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exception)) from exception
     except Exception as exception:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"检索服务不可用: {exception}") from exception
+
+
+@router.post("/qa/ask/stream", summary="流式地质证据问答")
+def stream_question(request: QuestionRequest):
+    def events():
+        try:
+            for event, payload in GeologicalRagService().stream(request.question, request.provider, request.limit):
+                yield f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        except Exception as exception:
+            payload = json.dumps({"message": f"智能问答失败: {exception}"}, ensure_ascii=False)
+            yield f"event: error\ndata: {payload}\n\n"
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

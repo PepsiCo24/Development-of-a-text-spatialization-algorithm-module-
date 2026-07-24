@@ -43,7 +43,7 @@ async function start() {
   try { status.value = await startKnowledgeExtraction(documentId, provider.value); result.value = { entities: [], attributes: [], relations: [] }; ElMessage.success('属性关系抽取任务已提交'); schedule() }
   catch (error) { ElMessage.error(message(error)) } finally { starting.value = false }
 }
-function schedule() { if (timer) clearTimeout(timer); timer = window.setTimeout(poll, 1600) }
+function schedule() { if (timer) clearTimeout(timer); timer = window.setTimeout(poll, 900) }
 async function poll() {
   try { const latest = await getKnowledgeStatus(documentId); status.value = latest; if (latest.status === 'EXTRACTING') return schedule(); if (latest.status === 'COMPLETED') { await reload(); ElMessage.success(`抽取完成：${latest.attributeCount} 个属性，${latest.relationCount} 条关系`) } }
   catch (error) { ElMessage.error(message(error)); if (status.value?.status === 'EXTRACTING') schedule() }

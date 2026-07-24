@@ -81,3 +81,36 @@ def test_uniform_model_attribute_confidence_is_recalibrated_from_evidence():
     _, attributes, _ = GeologicalKnowledgeExtractor(settings, httpx.Client(transport=httpx.MockTransport(uniform_handler))).extract([chunk], "deepseek")
 
     assert len({item.confidence for item in attributes}) > 1
+
+
+def test_batches_multiple_chunks_into_one_model_request_and_keeps_cross_chunk_relation():
+    calls = []
+
+    def batch_handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        calls.append(payload)
+        assert "chunkId=1" in payload["messages"][1]["content"]
+        assert "chunkId=2" in payload["messages"][1]["content"]
+        assert payload["max_tokens"] == 2048
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
+            "attributes": [],
+            "relations": [{"sourceEntityId": 1, "targetEntityId": 2, "relationType": "LOCATED_IN",
+                           "confidence": .95, "sourceText": "一号矿体位于铜绿山矿段。", "page": 2}],
+        }, ensure_ascii=False)}}]})
+
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://deepseek.test/v1",
+                        llm_batch_chunk_limit=8, llm_batch_char_limit=8000)
+    chunks = [
+        KnowledgeChunk(chunk_id=1, content="一号矿体规模较大。", page_start=1, page_end=1,
+                       entities=[KnowledgeEntity(entity_id=1, entity_name="一号矿体", entity_type="ORE_BODY")]),
+        KnowledgeChunk(chunk_id=2, content="一号矿体位于铜绿山矿段。", page_start=2, page_end=2,
+                       entities=[KnowledgeEntity(entity_id=2, entity_name="铜绿山矿段", entity_type="PLACE")]),
+    ]
+
+    _, _, relations = GeologicalKnowledgeExtractor(
+        settings, httpx.Client(transport=httpx.MockTransport(batch_handler)),
+    ).extract(chunks, "deepseek")
+
+    assert len(calls) == 1
+    assert len(relations) == 1
+    assert relations[0].page == 2

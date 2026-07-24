@@ -6,9 +6,11 @@ import com.cug.geotext.common.BusinessException;
 import com.cug.geotext.dto.QuestionRequest;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Service
 public class GraphQueryService {
@@ -35,10 +37,7 @@ public class GraphQueryService {
 
     public AiQuestionResponse ask(QuestionRequest request) {
         llmConfigService.applyProvider(request.provider());
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("question", request.question());
-        if (request.provider() != null && !request.provider().isBlank()) body.put("provider", request.provider());
-        body.put("limit", request.limit() == null ? 5 : request.limit());
+        Map<String, Object> body = questionBody(request);
         try {
             AiQuestionResponse response = client.post().uri("/api/v1/qa/ask").body(body).retrieve().body(AiQuestionResponse.class);
             if (response == null) throw new BusinessException(502, "问答服务未返回结果");
@@ -46,6 +45,33 @@ public class GraphQueryService {
         } catch (RestClientResponseException exception) {
             throw new BusinessException(502, "智能问答服务调用失败: HTTP " + exception.getStatusCode().value() + detail(exception));
         }
+    }
+
+    public StreamingResponseBody askStream(QuestionRequest request) {
+        llmConfigService.applyProvider(request.provider());
+        Map<String, Object> body = questionBody(request);
+        return output -> client.post().uri("/api/v1/qa/ask/stream")
+            .contentType(MediaType.APPLICATION_JSON).accept(MediaType.TEXT_EVENT_STREAM).body(body)
+            .exchange((httpRequest, response) -> {
+                if (response.getStatusCode().isError()) {
+                    throw new BusinessException(502, "智能问答流式服务调用失败: HTTP " + response.getStatusCode().value());
+                }
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = response.getBody().read(buffer)) >= 0) {
+                    output.write(buffer, 0, length);
+                    output.flush();
+                }
+                return null;
+            });
+    }
+
+    private Map<String, Object> questionBody(QuestionRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("question", request.question());
+        if (request.provider() != null && !request.provider().isBlank()) body.put("provider", request.provider());
+        body.put("limit", request.limit() == null ? 5 : request.limit());
+        return body;
     }
 
     private AiGraphView get(String uri, Object... variables) {

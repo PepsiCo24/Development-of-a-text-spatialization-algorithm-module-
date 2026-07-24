@@ -143,3 +143,51 @@ def test_rag_uses_source_evidence_when_remote_model_is_unavailable():
     assert result.answer.startswith("根据《")
     assert result.sources
     assert result.related_entities
+
+
+def test_rag_stream_emits_status_metadata_and_model_deltas():
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["stream"] is True
+        assert body["max_tokens"] == 1024
+        stream = (
+            'data: {"choices":[{"delta":{"content":"一号矿体"}}]}\n\n'
+            'data: {"choices":[{"delta":{"content":"受断裂控制。"}}]}\n\n'
+            'data: [DONE]\n\n'
+        )
+        return httpx.Response(200, text=stream, headers={"content-type": "text/event-stream"})
+
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://llm.test/v1")
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    events = list(GeologicalRagService(settings, client, StubVectors(), StubGraph()).stream(
+        "矿体受什么控制？", "deepseek", 5,
+    ))
+
+    assert [event for event, _ in events] == ["status", "metadata", "status", "draft", "reset", "delta", "delta", "complete"]
+    assert "".join(payload["content"] for event, payload in events if event == "delta") == "一号矿体受断裂控制。"
+    metadata = next(payload for event, payload in events if event == "metadata")
+    assert metadata["sources"][0]["documentName"] == "调查报告"
+
+
+def test_rag_retrieval_removes_duplicate_chunks_and_entities():
+    class DuplicateVectors:
+        def search(self, question, limit):
+            row = StubVectors().search(question, limit)[0]
+            return [row, {**row, "score": 0.8}]
+
+    class DuplicateGraph:
+        def context_for_documents(self, document_ids):
+            row = StubGraph().context_for_documents(document_ids)[0]
+            return [row, dict(row)]
+
+    service = GeologicalRagService(
+        Settings(deepseek_api_key="test-key"),
+        httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200))),
+        DuplicateVectors(),
+        DuplicateGraph(),
+    )
+
+    sources, entities = service._retrieve("矿体受什么控制？", 5)
+
+    assert len(sources) == 1
+    assert len(entities) == 1
