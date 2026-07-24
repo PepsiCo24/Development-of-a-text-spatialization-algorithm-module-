@@ -24,6 +24,18 @@ def test_plain_text_is_cleaned_structured_and_chunked() -> None:
     assert "断裂控制矿体" in result.chunks[1].content
 
 
+def test_plain_text_keeps_body_when_heading_uses_single_line_break() -> None:
+    source = "第一章 调查区概况\n铜绿山矿段位于湖北省大冶市。\n\n第二章 构造\nF1断裂倾角68°。".encode()
+
+    result = DocumentParsingPipeline(ocr=StubOcr()).parse("report.txt", source)
+
+    assert len(result.chunks) == 2
+    assert result.chunks[0].chapter_title == "第一章 调查区概况"
+    assert result.chunks[0].content == "铜绿山矿段位于湖北省大冶市。"
+    assert result.chunks[1].chapter_title == "第二章 构造"
+    assert result.chunks[1].content == "F1断裂倾角68°。"
+
+
 def test_docx_headings_and_tables_are_extracted() -> None:
     document = Document()
     document.add_heading("第一章 矿区概况", level=1)

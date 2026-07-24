@@ -73,7 +73,8 @@ def test_falls_back_to_explicit_coordinates_when_remote_model_is_unavailable():
     assert len(objects)==1
     assert objects[0].object_type=="BOREHOLE"
     assert objects[0].geometry.coordinates==[114.93,30.11]
-    assert warnings==["已直接依据原文明确经纬度完成空间化"]
+    assert len(warnings)==1
+    assert "直接依据原文孔口坐标" in warnings[0]
 
 
 def test_uses_borehole_coordinate_as_explicit_place_anchor_and_explains_unlocated_fault():
@@ -98,3 +99,34 @@ def test_uses_borehole_coordinate_as_explicit_place_anchor_and_explains_unlocate
     assert objects[1].geometry.coordinates==[114.93,30.11]
     assert objects[1].geocoding_source=="原文钻孔关联位置（锚点）"
     assert any("缺少起止坐标" in warning for warning in warnings)
+
+
+def test_explicit_survey_corners_use_fast_path_without_remote_model():
+    def should_not_call_model(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("explicit WGS84 geometry should not call the remote model")
+
+    settings=Settings(deepseek_api_key="test-key",deepseek_base_url="https://deepseek.test/v1")
+    chunk=SpatialChunk(chunk_id=9,content="调查范围四个角点依次为东经114.9280°、北纬30.0770°，东经114.9500°、北纬30.0770°，东经114.9500°、北纬30.0910°，东经114.9280°、北纬30.0910°。",page_start=1,page_end=1,entities=[])
+
+    _,objects,warnings=GeologicalSpatialExtractor(settings,httpx.Client(transport=httpx.MockTransport(should_not_call_model))).extract([chunk],"deepseek")
+
+    assert len(objects)==1
+    assert objects[0].object_type=="SURVEY_AREA"
+    assert objects[0].geometry.type=="Polygon"
+    assert objects[0].geometry.coordinates[0][0]==objects[0].geometry.coordinates[0][-1]
+    assert "未调用远程模型" in warnings[0]
+
+
+def test_borehole_fast_path_projects_explicitly_revealed_orebody():
+    def should_not_call_model(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("explicit borehole evidence should not call the remote model")
+
+    settings=Settings(deepseek_api_key="test-key",deepseek_base_url="https://deepseek.test/v1")
+    chunk=SpatialChunk(chunk_id=10,content="ZK001钻孔孔口坐标为东经114.9384°、北纬30.0840°，188.70-214.30 m揭露Ⅰ号铜铁矿体。",page_start=4,page_end=4,entities=[])
+
+    _,objects,warnings=GeologicalSpatialExtractor(settings,httpx.Client(transport=httpx.MockTransport(should_not_call_model))).extract([chunk],"deepseek")
+
+    assert [item.object_type for item in objects]==["BOREHOLE","MINERAL_POINT"]
+    assert objects[1].geometry.coordinates==[114.9384,30.084]
+    assert objects[1].geocoding_source=="钻孔揭露位置（孔口投影）"
+    assert any("实际地下位置" in warning for warning in warnings)

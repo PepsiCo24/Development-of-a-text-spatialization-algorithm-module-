@@ -60,14 +60,14 @@ async function startExtraction() {
     status.value = await startEntityExtraction(documentId, provider.value)
     entities.value = []; selected.value = undefined
     ElMessage.success(`已提交 ${provider.value === 'deepseek' ? 'DeepSeek' : 'Qwen'} 识别任务`)
-    schedulePoll()
+    schedulePoll(150)
   } catch (error) { ElMessage.error(messageOf(error)) }
   finally { starting.value = false }
 }
 
-function schedulePoll() {
+function schedulePoll(delay = 650) {
   if (pollTimer) window.clearTimeout(pollTimer)
-  pollTimer = window.setTimeout(pollStatus, 1600)
+  pollTimer = window.setTimeout(pollStatus, delay)
 }
 async function pollStatus() {
   try {

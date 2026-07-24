@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.1
     llm_timeout_seconds: float = 300.0
     llm_max_tokens: int = 4096
+    llm_parallel_workers: int = 2
+    llm_batch_chunk_limit: int = 8
+    llm_batch_char_limit: int = 8000
+    llm_fast_path_max_chars: int = 12000
+    llm_fast_path_min_entities: int = 8
+    llm_fast_path_min_types: int = 5
     llm_trust_env_proxy: bool = False
     geocoding_enabled: bool = True
     geocoding_base_url: str = "https://nominatim.openstreetmap.org"

@@ -72,6 +72,7 @@ public class EntityExtractionService {
             List<DocumentChunk> chunks = chunkService.list(documentId);
             updateState(document, "EXTRACTING", 15, "");
             llmConfigService.applyProvider(provider);
+            updateState(document, "EXTRACTING", 35, "");
             List<Map<String, Object>> requestChunks = chunks.stream().map(chunk -> {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("chunk_id", chunk.getId());

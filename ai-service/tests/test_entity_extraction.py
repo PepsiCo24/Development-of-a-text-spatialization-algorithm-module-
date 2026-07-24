@@ -121,3 +121,31 @@ def test_evidence_confidence_varies_with_alignment_and_type_support():
 
     assert exact > weak
     assert exact != weak
+
+
+def test_short_chunks_are_batched_into_one_model_request():
+    requests = 0
+
+    def batched_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"entities":[]}'}}]})
+
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://deepseek.test/v1")
+    chunks = [EntityChunk(chunk_id=index, content=f"第{index}段地质资料。", page_start=index, page_end=index) for index in (1, 2, 3)]
+
+    GeologicalEntityExtractor(settings, httpx.Client(transport=httpx.MockTransport(batched_handler))).extract(chunks, "deepseek")
+
+    assert requests == 1
+
+
+def test_malformed_model_json_falls_back_to_verifiable_evidence():
+    def malformed_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"entities":[{"entityName":"F1断裂"}'}}]})
+
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://deepseek.test/v1")
+    chunk = EntityChunk(chunk_id=5, content="F1断裂倾向南东，倾角68°，控制赋存于矽卡岩化带的Ⅰ号铜铁矿体。", page_start=3, page_end=3)
+
+    _, entities = GeologicalEntityExtractor(settings, httpx.Client(transport=httpx.MockTransport(malformed_handler))).extract([chunk], "deepseek")
+
+    assert {entity.entity_type for entity in entities} >= {"FAULT", "DIP_DIRECTION", "DIP_ANGLE", "ORE_BODY", "MINERALIZATION_ZONE"}

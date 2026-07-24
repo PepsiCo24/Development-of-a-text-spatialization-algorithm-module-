@@ -39,6 +39,7 @@ const editForm = reactive<DocumentMetadata>({ name: '', region: '', year: undefi
 
 const previewOpen = ref(false)
 const previewUrl = ref('')
+const previewText = ref('')
 const previewDocument = ref<GeologicalDocument>()
 
 const typeLabels: Record<string, string> = { PDF: 'PDF', WORD: 'Word', TXT: '文本', IMAGE: '图片' }
@@ -157,10 +158,14 @@ async function remove(document: GeologicalDocument) {
 
 async function preview(document: GeologicalDocument) {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = ''
+  previewText.value = ''
   previewDocument.value = document
   try {
     const blob = await fetchDocumentFile(document.id)
-    if (document.type === 'WORD') {
+    if (document.type === 'TXT') {
+      previewText.value = new TextDecoder('utf-8', { fatal: false }).decode(await blob.arrayBuffer())
+    } else if (document.type === 'WORD') {
       if (document.originalName.toLowerCase().endsWith('.doc')) return ElMessage.warning('旧版 .doc 无法在线预览，请转换为 .docx 后重新上传')
       const converted = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() })
       const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>body{max-width:900px;margin:32px auto;padding:0 28px;font:16px/1.8 "Microsoft YaHei",sans-serif;color:#233d37}img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:6px}</style></head><body>${converted.value}</body></html>`
@@ -230,6 +235,6 @@ onBeforeUnmount(() => { if (previewUrl.value) URL.revokeObjectURL(previewUrl.val
 
     <el-dialog v-model="editOpen" title="编辑资料信息" width="min(620px, 92vw)"><el-form label-position="top" class="metadata-form"><div class="form-grid"><el-form-item label="资料名称" required><el-input v-model="editForm.name" maxlength="255" /></el-form-item><el-form-item label="所属区域"><el-input v-model="editForm.region" /></el-form-item><el-form-item label="资料年份"><el-input-number v-model="editForm.year" :min="1800" :max="2100" controls-position="right" /></el-form-item><el-form-item label="关键词"><el-input v-model="editForm.keyword" /></el-form-item></div><el-form-item label="摘要"><el-input v-model="editForm.summary" type="textarea" :rows="4" maxlength="5000" show-word-limit /></el-form-item></el-form><template #footer><el-button @click="editOpen = false">取消</el-button><el-button type="primary" :loading="editLoading" @click="submitEdit">保存修改</el-button></template></el-dialog>
 
-    <el-dialog v-model="previewOpen" :title="previewDocument?.name" width="min(1100px, 94vw)" destroy-on-close><div class="document-preview"><img v-if="previewDocument?.type === 'IMAGE'" :src="previewUrl" :alt="previewDocument.name" /><iframe v-else :src="previewUrl" :title="previewDocument?.name" sandbox=""></iframe></div></el-dialog>
+    <el-dialog v-model="previewOpen" :title="previewDocument?.name" width="min(1100px, 94vw)" destroy-on-close><div class="document-preview"><pre v-if="previewDocument?.type === 'TXT'" class="text-file-preview">{{ previewText }}</pre><img v-else-if="previewDocument?.type === 'IMAGE'" :src="previewUrl" :alt="previewDocument.name" /><iframe v-else :src="previewUrl" :title="previewDocument?.name" sandbox=""></iframe></div></el-dialog>
   </div>
 </template>

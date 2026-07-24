@@ -101,6 +101,7 @@ public class DocumentParsingService {
             fileHeaders.setContentType(safeMediaType(document.getContentType()));
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             body.add("file", new HttpEntity<>(resource, fileHeaders));
+            updateState(document, "PARSING", 35, null);
             AiParseResponse response = aiRestClient.post().uri("/api/v1/documents/parse")
                 .contentType(MediaType.MULTIPART_FORM_DATA).body(body).retrieve().body(AiParseResponse.class);
             if (response == null || response.chunks() == null || response.chunks().isEmpty()) {

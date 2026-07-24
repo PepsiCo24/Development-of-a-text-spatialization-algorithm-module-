@@ -16,6 +16,7 @@ SYSTEM_PROMPT="""你是地质文本空间化专家。只根据原文抽取空间
 对象类型仅允许 PLACE(地名)、COORDINATE(坐标)、MINERAL_POINT(矿点)、BOREHOLE(钻孔)、FAULT(断裂)、SURVEY_AREA(调查区域)。
 geometry 必须是 WGS84 GeoJSON，只允许 Point、LineString、Polygon；经度在前、纬度在后。只有原文提供明确坐标或足够的坐标序列时才能输出 geometry。地名没有坐标时 geometry 为 null，并提供 locationQuery 供地名服务解析。断裂至少两个点，区域多边形首尾必须闭合。
 严格输出 JSON：{"objects":[{"name":"对象名","objectType":"FAULT","entityId":1,"geometry":{"type":"LineString","coordinates":[[114.1,30.1],[114.2,30.2]]},"locationQuery":null,"confidence":0.9,"sourceText":"证据句","page":1}]}。没有结果返回空数组，不得返回 Markdown。"""
+COORDINATE_PAIR_PATTERN=re.compile(r"(?:东经|E)\s*(\d{1,3}(?:\.\d+)?)\s*[°度]?\s*[、,，\s]*\s*(?:北纬|N)\s*(\d{1,2}(?:\.\d+)?)\s*[°度]?",re.IGNORECASE)
 
 
 class GeologicalSpatialExtractor:
@@ -25,6 +26,12 @@ class GeologicalSpatialExtractor:
     def extract(self,chunks:list[SpatialChunk],provider_name:str|None=None,region_hint:str|None=None)->tuple[ProviderConfig,list[SpatialObject],list[str]]:
         provider=self.resolver.resolve_provider(provider_name or self.settings.llm_default_provider);objects=[];warnings=[]
         def extract_chunk(chunk:SpatialChunk):
+            direct=self._explicit_coordinate_fast_path(chunk)
+            if direct is not None:return direct
+            if not re.search(r"(?:东经|西经|北纬|南纬|WGS\s*84|EPSG|坐标|\d{2,3}(?:\.\d+)?\s*[°度].{0,30}\d{1,2}(?:\.\d+)?\s*[°度])",chunk.content,re.IGNORECASE):
+                names=[entity.entity_name for entity in chunk.entities if entity.entity_type in{"PLACE","COORDINATE","FAULT","ORE_BODY"}]
+                note=f"“{'、'.join(names[:4])}”缺少原文明确坐标，为保证精度未进行推测上图"if names else"本段没有可核验坐标，已跳过远程空间推测"
+                return [],[note]
             try:
                 payload=self._call(provider,chunk,region_hint)
                 return self._normalize(payload,chunk,region_hint)
@@ -37,7 +44,7 @@ class GeologicalSpatialExtractor:
         return provider,list(unique.values()),warnings
     def _call(self,provider:ProviderConfig,chunk:SpatialChunk,region_hint:str|None)->Any:
         entity_json=json.dumps([e.model_dump() for e in chunk.entities],ensure_ascii=False)
-        request={"model":provider.model,"temperature":provider.temperature,"max_tokens":self.settings.llm_max_tokens,"response_format":{"type":"json_object"},"messages":[{"role":"system","content":self.resolver._system_prompt(provider,SYSTEM_PROMPT)},{"role":"user","content":f"区域提示：{region_hint or '无'}\n页码范围：{chunk.page_start}-{chunk.page_end}\n实体清单：{entity_json}\n原文：\n{chunk.content}"}]}
+        request={"model":provider.model,"temperature":min(provider.temperature,.1),"max_tokens":min(self.settings.llm_max_tokens,1536),"response_format":{"type":"json_object"},"messages":[{"role":"system","content":self.resolver._system_prompt(provider,SYSTEM_PROMPT)},{"role":"user","content":f"区域提示：{region_hint or '无'}\n页码范围：{chunk.page_start}-{chunk.page_end}\n实体清单：{entity_json}\n原文：\n{chunk.content}"}]}
         if self.resolver._is_siliconflow_qwen3(provider):request["enable_thinking"]=False
         try:
             response=self.client.post(self.resolver._chat_completions_url(provider.base_url),headers={"Authorization":f"Bearer {provider.api_key}"},json=request);response.raise_for_status()
@@ -69,6 +76,47 @@ class GeologicalSpatialExtractor:
             if geometry.type=="Point" and re.search(r"(?:东经|西经|北纬|南纬).+\d",source):confidence=max(confidence,.98)
             objects.append(SpatialObject(name=name,object_type=object_type,entity_id=int(entity_id)if entity_id is not None else None,chunk_id=chunk.chunk_id,geometry=geometry,confidence=confidence,source_text=source,page=page,geocoding_source=geocoding_source))
         return objects,warnings
+    def _explicit_coordinate_fast_path(self,chunk:SpatialChunk)->tuple[list[SpatialObject],list[str]]|None:
+        matches=list(COORDINATE_PAIR_PATTERN.finditer(chunk.content))
+        if not matches:return None
+        coordinates=[[float(match.group(1)),float(match.group(2))]for match in matches]
+        if any(not(-180<=point[0]<=180 and-90<=point[1]<=90)for point in coordinates):return None
+        page=chunk.page_start
+        if len(coordinates)>=4 and re.search(r"调查(?:范围|区域)|四个角点|边界",chunk.content):
+            ring=coordinates[:]
+            if ring[0]!=ring[-1]:ring.append(ring[0])
+            source=self._evidence_sentence(chunk.content,matches[0].start())
+            place=next((e for e in chunk.entities if e.entity_type=="PLACE"),None)
+            name=f"{place.entity_name}调查区域"if place else"调查区域"
+            return [SpatialObject(name=name,object_type="SURVEY_AREA",entity_id=place.entity_id if place else None,chunk_id=chunk.chunk_id,geometry=GeoJsonGeometry(type="Polygon",coordinates=[ring]),confidence=.99,source_text=source,page=page,geocoding_source="原文WGS84角点")],["已直接依据原文角点生成调查区域，未调用远程模型"]
+        fault=next((e for e in chunk.entities if e.entity_type=="FAULT"),None)
+        fault_match=re.search(r"(?:F\d+|[\u4e00-\u9fff]{1,12})(?:断裂|断层)",chunk.content,re.IGNORECASE)
+        if len(coordinates)>=2 and(fault or fault_match):
+            name=fault.entity_name if fault else fault_match.group(0)
+            source=self._evidence_sentence(chunk.content,chunk.content.find(name))
+            return [SpatialObject(name=name,object_type="FAULT",entity_id=fault.entity_id if fault else None,chunk_id=chunk.chunk_id,geometry=GeoJsonGeometry(type="LineString",coordinates=coordinates[:2]),confidence=.99,source_text=source,page=page,geocoding_source="原文WGS84起止坐标")],["已直接依据原文起止坐标生成断裂线，未调用远程模型"]
+        borehole=next((e for e in chunk.entities if re.search(r"(?:ZK\s*\d+|钻孔)",e.entity_name,re.IGNORECASE)),None)
+        borehole_match=re.search(r"(?:ZK\s*\d+|[\u4e00-\u9fffA-Za-z0-9_-]{0,12}钻孔)",chunk.content,re.IGNORECASE)
+        if len(coordinates)==1 and(borehole or borehole_match)and fault is None:
+            point=GeoJsonGeometry(type="Point",coordinates=coordinates[0]);source=self._evidence_sentence(chunk.content,matches[0].start());name=borehole.entity_name if borehole else borehole_match.group(0)
+            objects=[SpatialObject(name=name,object_type="BOREHOLE",entity_id=borehole.entity_id if borehole else None,chunk_id=chunk.chunk_id,geometry=point,confidence=.99,source_text=source,page=page,geocoding_source="原文WGS84孔口坐标")]
+            notes=["已直接依据原文孔口坐标完成空间化，未调用远程模型"]
+            ore_body_added=False
+            for entity in chunk.entities:
+                if entity.entity_type=="PLACE"and self._linked_place_anchor(chunk,entity.entity_name)is not None:
+                    objects.append(SpatialObject(name=entity.entity_name,object_type="PLACE",entity_id=entity.entity_id,chunk_id=chunk.chunk_id,geometry=point,confidence=.90,source_text=self._evidence_sentence(chunk.content,chunk.content.find(entity.entity_name)),page=page,geocoding_source="原文钻孔关联位置（锚点）"))
+                    notes.append(f"“{entity.entity_name}”采用原文钻孔坐标作为关联锚点，不代表区域边界")
+                if entity.entity_type=="ORE_BODY"and"揭露"in chunk.content:
+                    objects.append(SpatialObject(name=entity.entity_name,object_type="MINERAL_POINT",entity_id=entity.entity_id,chunk_id=chunk.chunk_id,geometry=point,confidence=.92,source_text=self._evidence_sentence(chunk.content,chunk.content.find(entity.entity_name)),page=page,geocoding_source="钻孔揭露位置（孔口投影）"))
+                    notes.append(f"“{entity.entity_name}”采用钻孔孔口投影位置，实际地下位置以钻孔轨迹为准")
+                    ore_body_added=True
+            ore_match=re.search(r"(?:[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩIVX一二三四五六七八九十\d]+号)?[\u4e00-\u9fff]{0,6}矿体",chunk.content)
+            if not ore_body_added and ore_match and"揭露"in chunk.content:
+                ore_name=ore_match.group(0)
+                objects.append(SpatialObject(name=ore_name,object_type="MINERAL_POINT",entity_id=None,chunk_id=chunk.chunk_id,geometry=point,confidence=.92,source_text=self._evidence_sentence(chunk.content,ore_match.start()),page=page,geocoding_source="钻孔揭露位置（孔口投影）"))
+                notes.append(f"“{ore_name}”采用钻孔孔口投影位置，实际地下位置以钻孔轨迹为准")
+            return objects,notes
+        return None
     def _evidence_fallback(self,chunk:SpatialChunk)->tuple[list[SpatialObject],list[str]]:
         longitude=re.search(r"(?:东经|E)\s*(\d{1,3}(?:\.\d+)?)\s*°?",chunk.content,re.IGNORECASE)
         latitude=re.search(r"(?:北纬|N)\s*(\d{1,2}(?:\.\d+)?)\s*°?",chunk.content,re.IGNORECASE)

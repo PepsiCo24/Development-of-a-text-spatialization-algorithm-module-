@@ -56,14 +56,14 @@ async function startParsing() {
     status.value = await startDocumentParsing(documentId)
     chunks.value = []
     ElMessage.success('解析任务已启动')
-    schedulePoll()
+    schedulePoll(120)
   } catch (error) { ElMessage.error(messageOf(error)) }
   finally { starting.value = false }
 }
 
-function schedulePoll() {
+function schedulePoll(delay = 500) {
   if (pollTimer) window.clearTimeout(pollTimer)
-  pollTimer = window.setTimeout(pollStatus, 1500)
+  pollTimer = window.setTimeout(pollStatus, delay)
 }
 
 async function pollStatus() {

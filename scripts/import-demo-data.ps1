@@ -12,12 +12,14 @@ $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/auth/login" -ContentT
 $headers = @{Authorization="Bearer $($login.data.accessToken)"}
 $demoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\demo-data")
 $metadata = @(
-    @{File=(Decode-Utf8 'MDEt6YSC5Lic5Y2X6ZOB6ZOc55+/6LCD5p+lLnR4dA==');Region=(Decode-Utf8 '6YSC5Lic5Y2X');Year=2024;Keyword=(Decode-Utf8 '6ZOB6ZOc55+/LOaWreijgizoirHlspflsqk=')},
-    @{File=(Decode-Utf8 'MDIt5a6c5piM56O355+/5Zyw5bGC6LCD5p+lLnR4dA==');Region=(Decode-Utf8 '5a6c5piM');Year=2024;Keyword=(Decode-Utf8 '56O355+/LOmch+aXpuezuyzlr5Lmrabns7s=')},
-    @{File=(Decode-Utf8 'MDMt5aSn5Ya255+/5Yy66ZK75a2U6K6w5b2VLnR4dA==');Region=(Decode-Utf8 '5aSn5Ya2');Year=2025;Keyword=(Decode-Utf8 '6ZK75a2ULOmTgeefv+S9kyzlk4HkvY0=')}
+    @{Prefix='01-';Region=(Decode-Utf8 '5rmW5YyX55yB5aSn5Ya25biC');Year=2026;Keyword=(Decode-Utf8 '6ZOc57u/5bGxLOmTnOmTgeefvyzmlq3oo4Is54K557q/6Z2i')},
+    @{Prefix='02-';Region=(Decode-Utf8 '5rmW5YyX55yB5aSn5Ya25biC');Year=2026;Keyword=(Decode-Utf8 'WkswMDEs6ZK75a2ULOmTgeefv+S9kyzlk4HkvY0=')},
+    @{Prefix='03-';Region=(Decode-Utf8 '5rmW5YyX55yB5aSn5Ya25biC');Year=2026;Keyword=(Decode-Utf8 '55+95Y2h5bKpLOm7hOmTnOefvyzno4Hpk4Hnn78s5ZOB5L2N')},
+    @{Prefix='04-';Region=(Decode-Utf8 '5rmW5YyX55yB5aSn5Ya25biC');Year=2026;Keyword=(Decode-Utf8 'RjHmlq3oo4IsT0NSLOWAvuWQkSzlgL7op5I=')}
 )
 foreach($item in $metadata){
-    $path=Join-Path $demoRoot $item.File
-    $name=[System.IO.Path]::GetFileNameWithoutExtension($item.File)
-    curl.exe -sS -X POST "$BaseUrl/api/documents" -H "Authorization: $($headers.Authorization)" -F "file=@$path;type=text/plain" -F "name=$name" -F "region=$($item.Region)" -F "year=$($item.Year)" -F "keyword=$($item.Keyword)"
+    $file=Get-ChildItem -LiteralPath $demoRoot -File | Where-Object { $_.Name.StartsWith($item.Prefix) } | Select-Object -First 1
+    if(-not $file){ throw "Missing demo file with prefix $($item.Prefix)" }
+    $name=[System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+    curl.exe -sS -X POST "$BaseUrl/api/documents" -H "Authorization: $($headers.Authorization)" -F "file=@$($file.FullName)" -F "name=$name" -F "region=$($item.Region)" -F "year=$($item.Year)" -F "keyword=$($item.Keyword)"
 }
