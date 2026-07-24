@@ -9,7 +9,7 @@ Phase 1–8 已全部实现：
 - Vue 3 + TypeScript + Vite 前端，包含登录、路由守卫、响应式布局和系统工作台
 - Spring Boot 3 + Java 17 后端，包含 PostgreSQL、MyBatis Plus、JWT 登录、Swagger、健康检查和统一异常响应
 - FastAPI AI 服务，包含分层配置、健康检查、OpenAPI 文档和基础测试
-- PostgreSQL 初始化脚本，创建 `app_user`、`document`、`system_log` 表及演示管理员
+- PostgreSQL 初始化脚本，创建 `app_user`、`document`、`system_log` 表及初始管理员
 - 前端工作台主动检测后端与 AI 服务状态
 - 地质报告、区域调查资料和矿产调查资料的上传、查询、分类、编辑、删除与状态管理
 - PDF、Word、TXT、PNG/JPEG/TIFF 文件校验和安全的分层物理存储
@@ -46,7 +46,7 @@ Phase 1–8 已全部实现：
 - 标准演示数据可确定性恢复全部五类属性、六类关系与 Point/LineString/Polygon 空间对象，以及可配置 `ONE_MAP_WEBHOOK_URL` 的“地球科学一张图”GeoJSON 推送
 - 三份可直接导入的地质演示资料、批量导入脚本、部署文档、接口文档、系统截图和测试报告
 
-当前版本为科研课题成果展示与专家评审用 `v1.0.0` 完整交付版。
+当前系统版本为 `v1.0.0`。
 
 ## 系统架构
 
@@ -177,7 +177,7 @@ pnpm install
 pnpm dev
 ```
 
-打开 `http://localhost:5173`，演示账号为 `admin / admin123`。
+打开 `http://localhost:5173`，使用已配置的系统账号登录。首次部署后请及时修改初始管理员密码。
 
 若使用项目已准备好的本地运行环境，可一键启动全部服务并自动执行数据库迁移：
 

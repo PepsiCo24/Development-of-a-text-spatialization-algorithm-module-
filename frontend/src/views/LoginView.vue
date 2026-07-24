@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 
-const form = reactive({ username: 'admin', displayName: '', password: 'admin123', confirmPassword: '' })
+const form = reactive({ username: '', displayName: '', password: '', confirmPassword: '' })
 const mode = ref<'login' | 'register'>('login')
 const loading = ref(false)
 const router = useRouter()
@@ -56,7 +56,6 @@ const submit = async () => {
         <label v-if="mode === 'register'">确认密码<input v-model="form.confirmPassword" type="password" autocomplete="new-password" minlength="8" placeholder="再次输入密码" /></label>
         <button type="submit" :disabled="loading"><span>{{ loading ? '正在处理…' : mode === 'login' ? '进入系统' : '注册并进入系统' }}</span><span aria-hidden="true">→</span></button>
         <button class="form-switch" type="button" @click="switchMode">{{ mode === 'login' ? '没有账号？立即注册' : '已有账号？返回登录' }}</button>
-        <small v-if="mode === 'login'" class="demo-note">演示管理员：admin / admin123</small>
       </form>
     </section>
   </main>
