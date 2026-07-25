@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import * as mammoth from 'mammoth/mammoth.browser'
 import { ArrowLeft, Download, MagicStick, Refresh } from '@element-plus/icons-vue'
 import {
   fetchDocumentFile,
@@ -23,10 +24,12 @@ const document = ref<GeologicalDocument>()
 const status = ref<ParseStatus>()
 const chunks = ref<DocumentChunk[]>([])
 const sourceUrl = ref('')
+const downloadUrl = ref('')
+const wordUnsupported = ref(false)
 let pollTimer: number | undefined
 
 const isParsing = computed(() => status.value?.status === 'PARSING')
-const canPreview = computed(() => document.value && document.value.type !== 'WORD')
+const canPreview = computed(() => Boolean(document.value && sourceUrl.value && !wordUnsupported.value))
 const actionLabel = computed(() => status.value?.status === 'PARSED' ? '重新解析' : status.value?.status === 'FAILED' ? '重试解析' : '开始解析')
 const statusLabel = computed(() => ({ UPLOADED: '等待解析', PARSING: '正在解析', PARSED: '解析完成', FAILED: '解析失败', ARCHIVED: '已归档' }[status.value?.status ?? 'UPLOADED']))
 
@@ -46,8 +49,35 @@ async function initialize() {
 
 async function loadSource() {
   if (sourceUrl.value) URL.revokeObjectURL(sourceUrl.value)
+  if (downloadUrl.value) URL.revokeObjectURL(downloadUrl.value)
+  sourceUrl.value = ''
+  downloadUrl.value = ''
+  wordUnsupported.value = false
   const blob = await fetchDocumentFile(documentId)
-  sourceUrl.value = URL.createObjectURL(blob)
+  downloadUrl.value = URL.createObjectURL(blob)
+  const current = document.value
+  if (!current) return
+  if (current.type === 'PDF') {
+    sourceUrl.value = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+  } else if (current.type === 'IMAGE') {
+    const mime = blob.type?.startsWith('image/') ? blob.type : (current.contentType || 'image/png')
+    sourceUrl.value = URL.createObjectURL(new Blob([blob], { type: mime }))
+  } else if (current.type === 'WORD') {
+    if (current.originalName.toLowerCase().endsWith('.doc')) {
+      wordUnsupported.value = true
+      return
+    }
+    const converted = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() })
+    const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>body{max-width:900px;margin:24px auto;padding:0 24px;font:15px/1.8 "Microsoft YaHei",sans-serif;color:#233d37;background:#fff}img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:6px}</style></head><body>${converted.value}</body></html>`
+    sourceUrl.value = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=UTF-8' }))
+  } else if (current.type === 'TXT') {
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(await blob.arrayBuffer())
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>body{margin:0;padding:24px;font:14px/1.7 ui-monospace,Consolas,monospace;color:#1f3b35;background:#fff;white-space:pre-wrap;word-break:break-word}</style></head><body>${text}</body></html>`
+    sourceUrl.value = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=UTF-8' }))
+  } else {
+    sourceUrl.value = URL.createObjectURL(blob)
+  }
 }
 
 async function startParsing() {
@@ -80,9 +110,9 @@ async function pollStatus() {
 }
 
 function downloadSource() {
-  if (!sourceUrl.value || !document.value) return
+  if (!downloadUrl.value || !document.value) return
   const anchor = window.document.createElement('a')
-  anchor.href = sourceUrl.value
+  anchor.href = downloadUrl.value
   anchor.download = document.value.originalName || document.value.name
   anchor.click()
 }
@@ -96,6 +126,7 @@ onMounted(initialize)
 onBeforeUnmount(() => {
   if (pollTimer) window.clearTimeout(pollTimer)
   if (sourceUrl.value) URL.revokeObjectURL(sourceUrl.value)
+  if (downloadUrl.value) URL.revokeObjectURL(downloadUrl.value)
 })
 </script>
 
@@ -115,7 +146,7 @@ onBeforeUnmount(() => {
     <div v-if="status?.errorMessage" class="parse-error"><strong>解析异常</strong><p>{{ status.errorMessage }}</p><button type="button" @click="startParsing">重新尝试</button></div>
 
     <section class="parse-workspace">
-      <article class="source-pane"><header><div><span class="pane-index">A</span><strong>原始资料</strong></div><small>{{ document?.originalName }}</small></header><div class="source-viewer"><img v-if="document?.type === 'IMAGE'" :src="sourceUrl" :alt="document.name" /><iframe v-else-if="canPreview" :src="sourceUrl" :title="document?.name"></iframe><div v-else class="word-placeholder"><strong>Word 文档</strong><p>浏览器无法保持原始 Word 版式，请下载原件查看；右侧展示解析后的结构化文本。</p><button type="button" @click="downloadSource">下载原件</button></div></div></article>
+      <article class="source-pane"><header><div><span class="pane-index">A</span><strong>原始资料</strong></div><small>{{ document?.originalName }}</small></header><div class="source-viewer"><img v-if="document?.type === 'IMAGE'" :src="sourceUrl" :alt="document.name" /><embed v-else-if="document?.type === 'PDF'" :src="sourceUrl" type="application/pdf" class="pdf-embed" /><iframe v-else-if="canPreview" :src="sourceUrl" :title="document?.name"></iframe><div v-else class="word-placeholder"><strong>Word 文档</strong><p>{{ wordUnsupported ? '旧版 .doc 无法在线预览，请转换为 .docx 后重新上传；也可下载原件查看。' : '原件加载中…' }}</p><button type="button" @click="downloadSource">下载原件</button></div></div></article>
       <article class="text-pane"><header><div><span class="pane-index">B</span><strong>解析文本</strong></div><small>{{ chunks.length ? `${chunks.length} 个文本块` : '尚未生成' }}</small></header><div class="chunk-list" v-if="chunks.length"><section v-for="chunk in chunks" :key="chunk.id ?? chunk.chunkIndex" class="text-chunk"><div class="chunk-meta"><span>{{ String(chunk.chunkIndex + 1).padStart(2, '0') }}</span><strong>{{ chunk.chapterTitle || '未命名章节' }}</strong><small>{{ pageLabel(chunk) }} · {{ chunk.charCount }} 字</small></div><p>{{ chunk.content }}</p></section></div><div v-else class="empty-parsing"><MagicStick /><strong>{{ isParsing ? '正在提取和清洗文本' : '尚未解析此资料' }}</strong><p>{{ isParsing ? '完成后将在此按章节和页码展示文本块。' : '点击右上角“开始解析”生成结构化文本。' }}</p></div></article>
     </section>
   </div>
