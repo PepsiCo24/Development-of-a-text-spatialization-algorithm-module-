@@ -67,9 +67,14 @@ async function loadSource() {
       wordUnsupported.value = true
       return
     }
-    const converted = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() })
-    const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>body{max-width:900px;margin:24px auto;padding:0 24px;font:15px/1.8 "Microsoft YaHei",sans-serif;color:#233d37;background:#fff}img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:6px}</style></head><body>${converted.value}</body></html>`
-    sourceUrl.value = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=UTF-8' }))
+    try {
+      const converted = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() })
+      const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>body{max-width:900px;margin:24px auto;padding:0 24px;font:15px/1.8 "Microsoft YaHei",sans-serif;color:#233d37;background:#fff}img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:6px}</style></head><body>${converted.value}</body></html>`
+      sourceUrl.value = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=UTF-8' }))
+    } catch (error) {
+      wordUnsupported.value = true
+      ElMessage.error(`Word 在线预览失败：${messageOf(error)}`)
+    }
   } else if (current.type === 'TXT') {
     const text = new TextDecoder('utf-8', { fatal: false }).decode(await blob.arrayBuffer())
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -146,7 +151,7 @@ onBeforeUnmount(() => {
     <div v-if="status?.errorMessage" class="parse-error"><strong>解析异常</strong><p>{{ status.errorMessage }}</p><button type="button" @click="startParsing">重新尝试</button></div>
 
     <section class="parse-workspace">
-      <article class="source-pane"><header><div><span class="pane-index">A</span><strong>原始资料</strong></div><small>{{ document?.originalName }}</small></header><div class="source-viewer"><img v-if="document?.type === 'IMAGE'" :src="sourceUrl" :alt="document.name" /><embed v-else-if="document?.type === 'PDF'" :src="sourceUrl" type="application/pdf" class="pdf-embed" /><iframe v-else-if="canPreview" :src="sourceUrl" :title="document?.name"></iframe><div v-else class="word-placeholder"><strong>Word 文档</strong><p>{{ wordUnsupported ? '旧版 .doc 无法在线预览，请转换为 .docx 后重新上传；也可下载原件查看。' : '原件加载中…' }}</p><button type="button" @click="downloadSource">下载原件</button></div></div></article>
+      <article class="source-pane"><header><div><span class="pane-index">A</span><strong>原始资料</strong></div><small>{{ document?.originalName }}</small></header><div class="source-viewer"><img v-if="document?.type === 'IMAGE'" :src="sourceUrl" :alt="document.name" /><embed v-else-if="document?.type === 'PDF'" :src="sourceUrl" type="application/pdf" class="pdf-embed" /><iframe v-else-if="canPreview" :src="sourceUrl" :title="document?.name"></iframe><div v-else class="word-placeholder"><strong>Word 文档</strong><p>{{ wordUnsupported ? '当前文件无法在线预览（旧版 .doc 请先另存为 .docx）。可下载原件查看。' : '正在转换 Word 预览…' }}</p><button type="button" @click="downloadSource">下载原件</button></div></div></article>
       <article class="text-pane"><header><div><span class="pane-index">B</span><strong>解析文本</strong></div><small>{{ chunks.length ? `${chunks.length} 个文本块` : '尚未生成' }}</small></header><div class="chunk-list" v-if="chunks.length"><section v-for="chunk in chunks" :key="chunk.id ?? chunk.chunkIndex" class="text-chunk"><div class="chunk-meta"><span>{{ String(chunk.chunkIndex + 1).padStart(2, '0') }}</span><strong>{{ chunk.chapterTitle || '未命名章节' }}</strong><small>{{ pageLabel(chunk) }} · {{ chunk.charCount }} 字</small></div><p>{{ chunk.content }}</p></section></div><div v-else class="empty-parsing"><MagicStick /><strong>{{ isParsing ? '正在提取和清洗文本' : '尚未解析此资料' }}</strong><p>{{ isParsing ? '完成后将在此按章节和页码展示文本块。' : '点击右上角“开始解析”生成结构化文本。' }}</p></div></article>
     </section>
   </div>
