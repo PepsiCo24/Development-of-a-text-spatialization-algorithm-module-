@@ -56,7 +56,7 @@ public class GraphQueryService {
                 if (response.getStatusCode().isError()) {
                     throw new BusinessException(502, "智能问答流式服务调用失败: HTTP " + response.getStatusCode().value());
                 }
-                byte[] buffer = new byte[1024];
+                byte[] buffer = new byte[256];
                 int length;
                 while ((length = response.getBody().read(buffer)) >= 0) {
                     output.write(buffer, 0, length);

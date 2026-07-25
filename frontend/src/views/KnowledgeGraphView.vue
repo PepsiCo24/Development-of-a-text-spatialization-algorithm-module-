@@ -12,7 +12,7 @@ import { streamGeologicalQuestion,expandGraphNode,getGraphStatus,queryGraphNodes
 
 const router=useRouter()
 const documents=ref<GeologicalDocument[]>([]),documentId=ref<number>(),status=ref<GraphStatus>(),graph=ref<GraphView>({nodes:[],links:[]}),nodeCatalog=ref<GraphNode[]>([]),query=ref(''),loading=ref(true),syncing=ref(false),selected=ref<GraphNode>(),depth=ref(1),sourceId=ref<number>(),targetId=ref<number>(),pathLoading=ref(false),pathActive=ref(false),pathMessage=ref('')
-const question=ref('大冶矿区 ZK001 钻孔记录包含哪些主要地质信息？'),provider=ref<'deepseek'|'qwen'>('qwen'),asking=ref(false),answer=ref<QaResponse>(),qaStage=ref(''),qaController=ref<AbortController>()
+const question=ref('大冶矿区 ZK001 钻孔记录包含哪些主要地质信息？'),provider=ref<'deepseek'|'qwen'>('deepseek'),asking=ref(false),answer=ref<QaResponse>(),qaStage=ref(''),qaController=ref<AbortController>()
 use([GraphChart,LegendComponent,TooltipComponent,CanvasRenderer])
 const graphCanvas=ref<HTMLElement>();let chart:ECharts|undefined,pollTimer:number|undefined
 const typeMeta={STRATUM:['地层','#4f7f67'],ROCK_BODY:['岩体','#a86f3d'],STRUCTURE:['构造','#b34f42'],ORE_BODY:['矿体','#d18432'],MINERAL:['矿种','#3f7d82'],REGION:['地区','#745d92']} as const

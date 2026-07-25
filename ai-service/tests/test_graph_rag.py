@@ -114,11 +114,15 @@ def test_neo4j_sync_uses_whitelisted_relationship_type():
 
 def test_runtime_provider_configuration_overrides_environment():
     set_runtime_provider("qwen", RuntimeProvider("https://runtime.test/v1", "runtime-key", "qwen-custom", 0.4, "严格引用证据"))
-    provider = GeologicalEntityExtractor(Settings()).resolve_provider("qwen")
-    assert provider.base_url == "https://runtime.test/v1"
-    assert provider.model == "qwen-custom"
-    assert provider.temperature == 0.4
-    assert provider.prompt_template == "严格引用证据"
+    try:
+        provider = GeologicalEntityExtractor(Settings()).resolve_provider("qwen")
+        assert provider.base_url == "https://runtime.test/v1"
+        assert provider.model == "qwen-custom"
+        assert provider.temperature == 0.4
+        assert provider.prompt_template == "严格引用证据"
+    finally:
+        from app.services import runtime_config
+        runtime_config._providers.pop("qwen", None)
 
 
 def test_dependency_free_embedding_is_deterministic_and_normalized():
@@ -140,7 +144,8 @@ def test_rag_uses_source_evidence_when_remote_model_is_unavailable():
     client = httpx.Client(transport=httpx.MockTransport(handler))
     result = GeologicalRagService(settings, client, StubVectors(), StubGraph()).ask("矿体受什么控制？", "deepseek", 5)
 
-    assert result.answer.startswith("根据《")
+    assert "调查报告" in result.answer
+    assert "矿体受北东向断裂控制" in result.answer
     assert result.sources
     assert result.related_entities
 
@@ -150,6 +155,7 @@ def test_rag_stream_emits_status_metadata_and_model_deltas():
         body = json.loads(request.content)
         assert body["stream"] is True
         assert body["max_tokens"] == 1024
+        assert body["thinking"] == {"type": "disabled"}
         stream = (
             'data: {"choices":[{"delta":{"content":"一号矿体"}}]}\n\n'
             'data: {"choices":[{"delta":{"content":"受断裂控制。"}}]}\n\n'
@@ -157,16 +163,39 @@ def test_rag_stream_emits_status_metadata_and_model_deltas():
         )
         return httpx.Response(200, text=stream, headers={"content-type": "text/event-stream"})
 
-    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://llm.test/v1")
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://api.deepseek.com/v1")
     client = httpx.Client(transport=httpx.MockTransport(handler))
     events = list(GeologicalRagService(settings, client, StubVectors(), StubGraph()).stream(
         "矿体受什么控制？", "deepseek", 5,
     ))
 
-    assert [event for event, _ in events] == ["status", "metadata", "status", "draft", "reset", "delta", "delta", "complete"]
+    assert [event for event, _ in events] == ["status", "draft", "metadata", "status", "reset", "delta", "delta", "complete"]
     assert "".join(payload["content"] for event, payload in events if event == "delta") == "一号矿体受断裂控制。"
+    draft = next(payload for event, payload in events if event == "draft")
+    assert "调查报告" in draft["content"]
     metadata = next(payload for event, payload in events if event == "metadata")
     assert metadata["sources"][0]["documentName"] == "调查报告"
+
+
+def test_rag_stream_falls_back_to_nonstream_when_stream_unavailable():
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        body = json.loads(request.content)
+        if body.get("stream"):
+            raise httpx.ReadTimeout("stream timed out", request=request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "一号矿体受北东向断裂控制。"}}]})
+
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://api.deepseek.com/v1")
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    events = list(GeologicalRagService(settings, client, StubVectors(), StubGraph()).stream(
+        "矿体受什么控制？", "deepseek", 5,
+    ))
+
+    assert calls["count"] >= 2
+    assert any(event == "delta" and payload["content"].startswith("一号矿体") for event, payload in events)
+    assert not any(event == "warning" for event, _ in events)
 
 
 def test_rag_retrieval_removes_duplicate_chunks_and_entities():

@@ -105,8 +105,7 @@ class GeologicalKnowledgeExtractor:
                 {"role": "user", "content": f"请一次完成以下 {len(chunks)} 个文本块的属性和关系抽取；允许识别跨文本块关系，证据必须来自所给原文：\n{source}"},
             ],
         }
-        if self.provider_resolver._is_siliconflow_qwen3(provider):
-            request["enable_thinking"] = False
+        request.update(self.provider_resolver._thinking_options(provider))
         try:
             response = self.client.post(self.provider_resolver._chat_completions_url(provider.base_url), headers={"Authorization": f"Bearer {provider.api_key}"}, json=request)
             response.raise_for_status()

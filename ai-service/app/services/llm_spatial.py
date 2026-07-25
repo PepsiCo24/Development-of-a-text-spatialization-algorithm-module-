@@ -45,7 +45,7 @@ class GeologicalSpatialExtractor:
     def _call(self,provider:ProviderConfig,chunk:SpatialChunk,region_hint:str|None)->Any:
         entity_json=json.dumps([e.model_dump() for e in chunk.entities],ensure_ascii=False)
         request={"model":provider.model,"temperature":min(provider.temperature,.1),"max_tokens":min(self.settings.llm_max_tokens,1536),"response_format":{"type":"json_object"},"messages":[{"role":"system","content":self.resolver._system_prompt(provider,SYSTEM_PROMPT)},{"role":"user","content":f"区域提示：{region_hint or '无'}\n页码范围：{chunk.page_start}-{chunk.page_end}\n实体清单：{entity_json}\n原文：\n{chunk.content}"}]}
-        if self.resolver._is_siliconflow_qwen3(provider):request["enable_thinking"]=False
+        request.update(self.resolver._thinking_options(provider))
         try:
             response=self.client.post(self.resolver._chat_completions_url(provider.base_url),headers={"Authorization":f"Bearer {provider.api_key}"},json=request);response.raise_for_status()
             return self.resolver.decode_json(response.json()["choices"][0]["message"]["content"])

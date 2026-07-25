@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Iterator
 
 import httpx
@@ -6,7 +7,7 @@ import httpx
 from app.core.config import Settings, get_settings
 from app.models.graph import QuestionResponse
 from app.services.graph_store import Neo4jGraphStore
-from app.services.llm_entities import GeologicalEntityExtractor
+from app.services.llm_entities import GeologicalEntityExtractor, ProviderConfig
 from app.services.vector_store import QdrantVectorStore
 
 SYSTEM_PROMPT = """你是地质科研问答助手。只能使用提供的检索段落和知识图谱实体回答，不得编造事实。
@@ -25,7 +26,7 @@ class GeologicalRagService:
     ) -> None:
         self.settings = settings or get_settings()
         self.client = client or httpx.Client(
-            timeout=min(self.settings.llm_timeout_seconds, 20.0),
+            timeout=httpx.Timeout(25.0, connect=5.0, pool=5.0),
             trust_env=self.settings.llm_trust_env_proxy,
         )
         self.providers = GeologicalEntityExtractor(self.settings, self.client)
@@ -36,19 +37,8 @@ class GeologicalRagService:
         provider = self.providers.resolve_provider(provider_name or self.settings.llm_default_provider)
         sources, entities = self._retrieve(question, limit)
         evidence = self._evidence(sources, entities)
-        request = {
-            "model": provider.model,
-            "temperature": min(provider.temperature, .2),
-            "max_tokens": min(self.settings.llm_max_tokens, 1024),
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {"role": "system", "content": self.providers._system_prompt(provider, SYSTEM_PROMPT)},
-                {"role": "user", "content": f"问题：{question}\n证据：{evidence}"},
-            ],
-        }
-        if self.providers._is_siliconflow_qwen3(provider):
-            request["enable_thinking"] = False
-
+        request = self._completion_request(provider, question, evidence, stream=False, system=SYSTEM_PROMPT)
+        request["response_format"] = {"type": "json_object"}
         answer = ""
         try:
             response = self.client.post(
@@ -60,30 +50,25 @@ class GeologicalRagService:
             payload = self.providers.decode_json(response.json()["choices"][0]["message"]["content"])
             answer = str(payload.get("answer", "")).strip()
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
-            answer = self._extractive_answer(sources)
+            answer = self._extractive_answer(sources, question)
 
         metadata = self._metadata(sources, entities, provider.name, provider.model)
         return QuestionResponse(answer=answer or "现有资料不足以回答该问题。", **metadata)
 
     def stream(self, question: str, provider_name: str | None, limit: int) -> Iterator[tuple[str, dict]]:
         provider = self.providers.resolve_provider(provider_name or self.settings.llm_default_provider)
-        yield "status", {"stage": "retrieving", "message": "正在检索相关段落与知识图谱"}
-        sources, entities = self._retrieve(question, limit)
+        yield "status", {"stage": "retrieving", "message": "正在检索证据"}
+
+        sources = self._dedupe_sources(self.vectors.search(question, limit))
+        yield "draft", {"content": self._extractive_answer(sources, question)}
+
+        document_ids = list(dict.fromkeys(int(item["document_id"]) for item in sources))
+        entities = self._dedupe_entities(self.graph.context_for_documents(document_ids))
         yield "metadata", self._metadata(sources, entities, provider.name, provider.model)
         yield "status", {"stage": "generating", "message": "证据检索完成，正在生成回答"}
-        yield "draft", {"content": self._extractive_answer(sources)}
-        request = {
-            "model": provider.model,
-            "temperature": min(provider.temperature, .2),
-            "max_tokens": min(self.settings.llm_max_tokens, 1024),
-            "stream": True,
-            "messages": [
-                {"role": "system", "content": self.providers._system_prompt(provider, STREAM_SYSTEM_PROMPT)},
-                {"role": "user", "content": f"问题：{question}\n证据：{self._evidence(sources, entities)}"},
-            ],
-        }
-        if self.providers._is_siliconflow_qwen3(provider):
-            request["enable_thinking"] = False
+
+        evidence = self._evidence(sources, entities)
+        request = self._completion_request(provider, question, evidence, stream=True, system=STREAM_SYSTEM_PROMPT)
 
         emitted = False
         try:
@@ -95,45 +80,111 @@ class GeologicalRagService:
             ) as response:
                 response.raise_for_status()
                 for line in response.iter_lines():
-                    if not line.startswith("data:"):
+                    delta = self._stream_delta(line)
+                    if not delta:
                         continue
-                    data = line[5:].strip()
-                    if not data or data == "[DONE]":
-                        continue
-                    payload = json.loads(data)
-                    delta = payload["choices"][0].get("delta", {}).get("content", "")
-                    if delta:
-                        if not emitted:
-                            yield "reset", {}
+                    if not emitted:
+                        yield "reset", {}
                         emitted = True
-                        yield "delta", {"content": str(delta)}
+                    yield "delta", {"content": delta}
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
             if not emitted:
-                yield "warning", {"message": "远程模型暂不可用，已返回原文证据摘要"}
+                fallback = self._nonstream_fallback(provider, question, evidence)
+                if fallback:
+                    yield "reset", {}
+                    emitted = True
+                    yield "delta", {"content": fallback}
+                else:
+                    yield "warning", {"message": "远程模型暂不可用，已返回原文证据摘要"}
         yield "complete", {"message": "回答完成"}
 
+    def _completion_request(
+        self,
+        provider: ProviderConfig,
+        question: str,
+        evidence: str,
+        *,
+        stream: bool,
+        system: str,
+    ) -> dict:
+        request = {
+            "model": provider.model,
+            "temperature": min(provider.temperature, 0.2),
+            "max_tokens": min(self.settings.llm_max_tokens, 1024),
+            "stream": stream,
+            "messages": [
+                {"role": "system", "content": self.providers._system_prompt(provider, system)},
+                {"role": "user", "content": f"问题：{question}\n证据：{evidence}"},
+            ],
+        }
+        request.update(self.providers._thinking_options(provider))
+        return request
+
+    def _nonstream_fallback(self, provider: ProviderConfig, question: str, evidence: str) -> str:
+        request = self._completion_request(provider, question, evidence, stream=False, system=STREAM_SYSTEM_PROMPT)
+        request["max_tokens"] = min(int(request["max_tokens"]), 512)
+        try:
+            response = self.client.post(
+                self.providers._chat_completions_url(provider.base_url),
+                headers={"Authorization": f"Bearer {provider.api_key}"},
+                json=request,
+            )
+            response.raise_for_status()
+            message = response.json()["choices"][0]["message"]
+            return str(message.get("content") or "").strip()
+        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
+            return ""
+
+    @staticmethod
+    def _stream_delta(line: str) -> str:
+        if not line.startswith("data:"):
+            return ""
+        data = line[5:].strip()
+        if not data or data == "[DONE]":
+            return ""
+        payload = json.loads(data)
+        delta = payload["choices"][0].get("delta", {})
+        content = delta.get("content")
+        return str(content) if content else ""
+
     def _retrieve(self, question: str, limit: int) -> tuple[list[dict], list[dict]]:
-        raw_sources = self.vectors.search(question, limit)
+        sources = self._dedupe_sources(self.vectors.search(question, limit))
+        document_ids = list(dict.fromkeys(int(item["document_id"]) for item in sources))
+        entities = self._dedupe_entities(self.graph.context_for_documents(document_ids))
+        return sources, entities
+
+    @staticmethod
+    def _dedupe_sources(raw_sources: list[dict]) -> list[dict]:
         source_map: dict[int, dict] = {}
         for source in raw_sources:
             chunk_id = int(source["chunk_id"])
             if chunk_id not in source_map or float(source.get("score", 0)) > float(source_map[chunk_id].get("score", 0)):
                 source_map[chunk_id] = source
-        sources = list(source_map.values())
-        document_ids = list(dict.fromkeys(int(item["document_id"]) for item in sources))
+        return sorted(source_map.values(), key=lambda item: float(item.get("score", 0)), reverse=True)
+
+    @staticmethod
+    def _dedupe_entities(raw_entities: list[dict]) -> list[dict]:
         entity_map: dict[int, dict] = {}
-        for entity in self.graph.context_for_documents(document_ids):
+        for entity in raw_entities:
             entity_map.setdefault(int(entity["id"]), entity)
-        entities = list(entity_map.values())[:40]
-        return sources, entities
+        return list(entity_map.values())[:40]
 
     @staticmethod
     def _evidence(sources: list[dict], entities: list[dict]) -> str:
         compact_sources = [
-            {**source, "content": str(source.get("content", ""))[:1800]}
-            for source in sources
+            {
+                "document_name": source.get("document_name"),
+                "page_start": source.get("page_start"),
+                "page_end": source.get("page_end"),
+                "content": str(source.get("content", ""))[:900],
+            }
+            for source in sources[:4]
         ]
-        return json.dumps({"paragraphs": compact_sources, "entities": entities[:40]}, ensure_ascii=False)
+        compact_entities = [
+            {"name": entity.get("name"), "nodeType": entity.get("nodeType"), "page": entity.get("page")}
+            for entity in entities[:12]
+        ]
+        return json.dumps({"paragraphs": compact_sources, "entities": compact_entities}, ensure_ascii=False)
 
     @staticmethod
     def _metadata(sources: list[dict], entities: list[dict], provider: str, model: str) -> dict:
@@ -172,10 +223,30 @@ class GeologicalRagService:
         }
 
     @staticmethod
-    def _extractive_answer(sources: list[dict]) -> str:
+    def _extractive_answer(sources: list[dict], question: str = "") -> str:
         if not sources:
             return "现有资料不足以回答该问题。"
-        best = sources[0]
-        content = str(best.get("content", "")).strip()
-        document_name = str(best.get("document_name", "原始资料")).strip()
-        return f"根据《{document_name}》中的原文证据：{content}" if content else "现有资料不足以回答该问题。"
+        keywords = [token for token in re.findall(r"[\u4e00-\u9fff]{2,}|[A-Za-z]+\d+|\d+(?:\.\d+)?%?", question) if token]
+        bullets: list[str] = []
+        for source in sources[:3]:
+            content = str(source.get("content", "")).strip()
+            document_name = str(source.get("document_name", "原始资料")).strip()
+            if not content:
+                continue
+            sentences = [part.strip() for part in re.split(r"(?<=[。；;！？\n])", content) if part.strip()]
+            ranked = sorted(
+                sentences,
+                key=lambda sentence: sum(1 for keyword in keywords if keyword and keyword in sentence),
+                reverse=True,
+            )
+            chosen = ranked[0] if ranked else content
+            if len(chosen) > 180:
+                chosen = chosen[:177] + "…"
+            page_start = source.get("page_start")
+            page_hint = f"第{page_start}页" if page_start is not None else "原文"
+            bullets.append(f"《{document_name}》{page_hint}：{chosen}")
+        if not bullets:
+            return "现有资料不足以回答该问题。"
+        if len(bullets) == 1:
+            return f"根据检索到的原文证据：{bullets[0]}"
+        return "根据检索到的原文证据，可归纳如下：\n" + "\n".join(f"{index}. {item}" for index, item in enumerate(bullets, start=1))

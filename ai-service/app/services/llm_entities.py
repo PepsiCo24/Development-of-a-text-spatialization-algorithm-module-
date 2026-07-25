@@ -179,10 +179,7 @@ class GeologicalEntityExtractor:
                 {"role": "user", "content": f"请完整抽取以下 {len(chunks)} 个文本块：\n{source}"},
             ],
         }
-        if self._is_siliconflow_qwen3(provider):
-            # Entity extraction needs deterministic JSON rather than a long
-            # reasoning trace. SiliconFlow supports this switch for Qwen3.
-            request["enable_thinking"] = False
+        request.update(self._thinking_options(provider))
         try:
             response = self.client.post(
                 self._chat_completions_url(provider.base_url),
@@ -204,6 +201,18 @@ class GeologicalEntityExtractor:
     @staticmethod
     def _is_siliconflow_qwen3(provider: ProviderConfig) -> bool:
         return "siliconflow.cn" in provider.base_url.lower() and provider.model.lower().startswith("qwen/qwen3")
+
+    @staticmethod
+    def _thinking_options(provider: ProviderConfig) -> dict:
+        """Disable latent chain-of-thought so providers return answer tokens first."""
+        options: dict = {}
+        model = provider.model.lower()
+        base = provider.base_url.lower()
+        if "siliconflow.cn" in base and model.startswith("qwen/qwen3"):
+            options["enable_thinking"] = False
+        if provider.name == "deepseek" or "deepseek.com" in base:
+            options["thinking"] = {"type": "disabled"}
+        return options
 
     @staticmethod
     def _system_prompt(provider: ProviderConfig, built_in: str) -> str:
