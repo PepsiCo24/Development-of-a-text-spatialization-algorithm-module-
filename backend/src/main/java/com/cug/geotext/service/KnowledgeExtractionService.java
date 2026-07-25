@@ -49,7 +49,7 @@ public class KnowledgeExtractionService {
     }
     public KnowledgeStatus status(long documentId) {
         GeologicalDocument d=documentService.get(documentId);
-        if("EXTRACTING".equals(d.getKnowledgeStatus())&&d.getUpdateTime()!=null&&d.getUpdateTime().isBefore(OffsetDateTime.now().minusMinutes(2)))
+        if("EXTRACTING".equals(d.getKnowledgeStatus())&&d.getUpdateTime()!=null&&d.getUpdateTime().isBefore(OffsetDateTime.now().minusMinutes(10)))
             updateState(d,"FAILED",zero(d.getKnowledgeProgress()),"知识抽取任务已中断，请重新启动");
         return new KnowledgeStatus(documentId, d.getKnowledgeStatus()==null?"PENDING":d.getKnowledgeStatus(), zero(d.getKnowledgeProgress()), d.getKnowledgeError(), zero(d.getAttributeCount()), zero(d.getRelationCount()), zero(d.getNormalizedCount()), d.getKnowledgeExtractedAt());
     }

@@ -26,7 +26,7 @@ const stages = [
 
 <template>
   <div class="dashboard-page">
-    <section class="dashboard-hero"><div><span class="eyebrow">Phase 8 · 系统工作台</span><h1>从地质原文出发，<br>构建可核查的空间知识。</h1><p>统一完成文档解析、实体识别、知识抽取、空间展示、证据问答和系统管理。</p></div><div class="hero-seal"><span>系统版本</span><strong>1.0</strong><small>SYSTEM</small></div></section>
+    <section class="dashboard-hero"><div><span class="eyebrow">Phase 8 · 系统工作台</span><h1>基于填图对象智能识别的<br>文本空间化算法模块</h1><p>统一完成文档解析、实体识别、知识抽取、空间展示、证据问答和系统管理。</p></div><div class="hero-seal"><span>系统版本</span><strong>1.0</strong><small>SYSTEM</small></div></section>
     <section class="service-row" aria-label="服务状态">
       <article><span class="service-index">A</span><div><small>业务服务 / Spring Boot</small><strong><i :class="backend"></i>{{ stateLabel[backend] }}</strong></div><code>:8080</code></article>
       <article><span class="service-index">B</span><div><small>智能服务 / FastAPI</small><strong><i :class="ai"></i>{{ stateLabel[ai] }}</strong></div><code>:8000</code></article>

@@ -38,15 +38,26 @@ Phase 1–8 已全部实现：
 - Neo4j 地层、岩体、构造、矿体、矿种和地区节点，以及位于、包含、控制和侵入关系
 - 节点查询、1–3 层关系展开、最短路径查询和 ECharts Graph 交互可视化
 - `BAAI/bge-m3` 文档块 Embedding 与 Qdrant 向量索引
-- “向量检索 → Neo4j 上下文 → DeepSeek/Qwen”证据约束问答，回答包含实体、空间位置、资料和来源段落
+- “向量检索 → Neo4j 上下文 → DeepSeek/Qwen”证据约束问答接口仍保留在后端/AI 服务中
+- 前端图谱页「地质演示问答」现为 **3 组写死问答**（不调用远程 LLM），便于无密钥演示：一号矿体赋存层位、闪长玢岩侵入关系、ZK001 钻孔主要信息
 - Excel 多工作表、CSV、JSON 与 GeoJSON 成果导出
-- 结构化空间化分析报告在线预览与中文 PDF 导出
+- 结构化空间化分析报告在线预览与中文 PDF 导出（`/api/reports/{id}/pdf`，与成果 Excel 导出相互独立）
 - 用户新增/编辑/启停/删除、全流程任务监控和 AI 调用审计日志
-- DeepSeek/Qwen API 地址、模型、Key、temperature 与 Prompt 模板持久化配置及实时应用
+- DeepSeek/Qwen API 地址、模型、Key、temperature 与 Prompt 模板持久化配置及实时应用（**密钥仅保存在本机，切勿提交到 Git**）
 - 标准演示数据可确定性恢复全部五类属性、六类关系与 Point/LineString/Polygon 空间对象，以及可配置 `ONE_MAP_WEBHOOK_URL` 的“地球科学一张图”GeoJSON 推送
 - 三份可直接导入的地质演示资料、批量导入脚本、部署文档、接口文档、系统截图和测试报告
 
 当前系统版本为 `v1.0.0`。
+
+## 演示问答（前端写死）
+
+图谱页面提供以下 3 组固定问答，点击即可查看答案、相关实体、空间位置与来源段落：
+
+1. 铜绿山矿段一号矿体主要赋存在什么地层？
+2. 闪长玢岩与大冶组之间是什么地质关系？
+3. 大冶矿区 ZK001 钻孔记录包含哪些主要地质信息？
+
+说明：这是答辩/演示用固定数据，不依赖 `DEEPSEEK_API_KEY` / `QWEN_API_KEY`。实体识别、知识抽取等流水线任务如需真实 LLM，请仅在本机环境变量或系统管理「模型配置」中填写密钥，且不要写入仓库。
 
 ## 系统架构
 
@@ -140,15 +151,18 @@ PaddleOCR 与 PaddlePaddle 由 `requirements.txt` 安装，首次识别会下载
 
 Windows 若因项目目录过长导致 Paddle 安装失败，可将依赖安装到短路径：`python -m pip install --target "$env:USERPROFILE\.geotext-ai-packages" -r ai-service\requirements.txt`。`scripts/start-ai.ps1` 会自动加载该目录，并关闭当前 Windows CPU 环境中不兼容的 oneDNN OCR 路径。
 
-实体识别至少配置一个模型服务密钥：
+实体识别 / 知识抽取如需真实大模型，至少在本机配置一个模型服务密钥（**不要提交到 Git**）：
 
 ```powershell
-$env:DEEPSEEK_API_KEY="sk-..."
+# 仅写入本机环境或 ai-service/.env（该文件已在 .gitignore 中）
+$env:DEEPSEEK_API_KEY="your-deepseek-key"
 # 或
-$env:QWEN_API_KEY="sk-..."
+$env:QWEN_API_KEY="your-qwen-key"
 ```
 
-默认提供商由 `LLM_DEFAULT_PROVIDER=deepseek|qwen` 选择，也可在实体识别页面逐任务切换。API 地址、模型、温度、超时和最大输出长度均可通过 `.env.example` 中的变量覆盖；密钥只在 AI 服务环境中读取，不写入数据库或返回浏览器。
+也可在系统管理「模型配置」中保存密钥；保存后密钥不会回显到前端。图谱页演示问答不依赖上述密钥。
+
+默认提供商由 `LLM_DEFAULT_PROVIDER=deepseek|qwen` 选择，也可在实体识别页面逐任务切换。API 地址、模型、温度、超时和最大输出长度均可通过 `.env.example` 中的变量覆盖。
 
 空间化默认通过 `GEOCODING_BASE_URL` 调用地名解析服务，并使用 `GEOCODING_USER_AGENT` 标识请求；可设置 `GEOCODING_ENABLED=false` 禁用外部地名解析。文本中明确给出的坐标和几何优先使用，不会用地名解析结果覆盖。
 

@@ -23,9 +23,15 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.1
     llm_timeout_seconds: float = 300.0
     llm_max_tokens: int = 4096
-    llm_parallel_workers: int = 2
+    llm_parallel_workers: int = 4
     llm_batch_chunk_limit: int = 8
     llm_batch_char_limit: int = 8000
+    llm_knowledge_timeout_seconds: float = 45.0
+    llm_knowledge_max_tokens: int = 1024
+    llm_knowledge_batch_chunk_limit: int = 12
+    llm_knowledge_batch_char_limit: int = 12000
+    llm_knowledge_fast_path: bool = True
+    llm_knowledge_fast_path_max_chars: int = 1800
     llm_fast_path_max_chars: int = 12000
     llm_fast_path_min_entities: int = 8
     llm_fast_path_min_types: int = 5

@@ -72,7 +72,11 @@ def test_uniform_model_attribute_confidence_is_recalibrated_from_evidence():
             ], "relations": [],
         }, ensure_ascii=False)}}]})
 
-    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://deepseek.test/v1")
+    settings = Settings(
+        deepseek_api_key="test-key",
+        deepseek_base_url="https://deepseek.test/v1",
+        llm_knowledge_fast_path=False,
+    )
     chunk = KnowledgeChunk(chunk_id=1, content="38.20—126.40 m 为灰岩。", page_start=1, page_end=1, entities=[
         KnowledgeEntity(entity_id=1, entity_name="38.20—126.40 m", entity_type="THICKNESS"),
         KnowledgeEntity(entity_id=2, entity_name="灰岩", entity_type="LITHOLOGY"),
@@ -83,6 +87,59 @@ def test_uniform_model_attribute_confidence_is_recalibrated_from_evidence():
     assert len({item.confidence for item in attributes}) > 1
 
 
+def test_fast_path_skips_remote_llm_when_typed_attributes_are_covered():
+    calls = []
+
+    def tracking(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(500, json={"error": "should not be called"})
+
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://deepseek.test/v1")
+    chunk = KnowledgeChunk(
+        chunk_id=9,
+        content="38.20—126.40 m 为下三叠统大冶组灰岩。",
+        page_start=1,
+        page_end=1,
+        entities=[
+            KnowledgeEntity(entity_id=1, entity_name="38.20—126.40 m", entity_type="THICKNESS"),
+            KnowledgeEntity(entity_id=2, entity_name="下三叠统", entity_type="GEOLOGICAL_AGE"),
+            KnowledgeEntity(entity_id=3, entity_name="灰岩", entity_type="LITHOLOGY"),
+        ],
+    )
+
+    _, attributes, _ = GeologicalKnowledgeExtractor(
+        settings, httpx.Client(transport=httpx.MockTransport(tracking)),
+    ).extract([chunk], "deepseek")
+
+    assert calls == []
+    assert {item.attribute_type for item in attributes} == {"THICKNESS", "AGE", "LITHOLOGY"}
+
+
+def test_skips_coordinate_only_chunks():
+    calls = []
+
+    def tracking(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(500, json={"error": "should not be called"})
+
+    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://deepseek.test/v1")
+    chunk = KnowledgeChunk(
+        chunk_id=4,
+        content="测点坐标为 114.9°E, 30.1°N。",
+        page_start=1,
+        page_end=1,
+        entities=[KnowledgeEntity(entity_id=1, entity_name="114.9°E, 30.1°N", entity_type="COORDINATE")],
+    )
+
+    _, attributes, relations = GeologicalKnowledgeExtractor(
+        settings, httpx.Client(transport=httpx.MockTransport(tracking)),
+    ).extract([chunk], "deepseek")
+
+    assert calls == []
+    assert attributes == []
+    assert relations == []
+
+
 def test_batches_multiple_chunks_into_one_model_request_and_keeps_cross_chunk_relation():
     calls = []
 
@@ -91,15 +148,20 @@ def test_batches_multiple_chunks_into_one_model_request_and_keeps_cross_chunk_re
         calls.append(payload)
         assert "chunkId=1" in payload["messages"][1]["content"]
         assert "chunkId=2" in payload["messages"][1]["content"]
-        assert payload["max_tokens"] == 2048
+        assert payload["max_tokens"] == 1024
         return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
             "attributes": [],
             "relations": [{"sourceEntityId": 1, "targetEntityId": 2, "relationType": "LOCATED_IN",
                            "confidence": .95, "sourceText": "一号矿体位于铜绿山矿段。", "page": 2}],
         }, ensure_ascii=False)}}]})
 
-    settings = Settings(deepseek_api_key="test-key", deepseek_base_url="https://deepseek.test/v1",
-                        llm_batch_chunk_limit=8, llm_batch_char_limit=8000)
+    settings = Settings(
+        deepseek_api_key="test-key",
+        deepseek_base_url="https://deepseek.test/v1",
+        llm_batch_chunk_limit=8,
+        llm_batch_char_limit=8000,
+        llm_knowledge_fast_path=False,
+    )
     chunks = [
         KnowledgeChunk(chunk_id=1, content="一号矿体规模较大。", page_start=1, page_end=1,
                        entities=[KnowledgeEntity(entity_id=1, entity_name="一号矿体", entity_type="ORE_BODY")]),

@@ -44,7 +44,7 @@ const submit = async () => {
   <main class="login-page">
     <section class="login-landscape" aria-label="产品介绍">
       <div class="contour contour-one"></div><div class="contour contour-two"></div>
-      <div class="landscape-copy"><span class="chapter">GEOSCIENCE / 01</span><h1>让沉睡在报告里的<br><em>地质位置</em>重新上图</h1><p>从文本、图件与扫描资料中识别地学实体，建立可追溯的空间知识底座。</p></div>
+      <div class="landscape-copy"><span class="chapter">GEOSCIENCE / 01</span><h1>基于填图对象智能识别的<br><em>文本空间化</em>算法模块</h1><p>从地质报告、图件与扫描资料中识别地学实体，建立可追溯的空间知识底座。</p></div>
       <div class="coordinate-strip"><span>30°31′ N</span><span>114°23′ E</span><span>EPSG:4490</span></div>
     </section>
     <section class="login-panel">

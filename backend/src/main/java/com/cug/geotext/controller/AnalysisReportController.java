@@ -24,9 +24,11 @@ public class AnalysisReportController {
     @GetMapping("/{documentId}/pdf")
     public ResponseEntity<byte[]> pdf(@PathVariable long documentId) {
         AnalysisReportService.ReportFile file = service.pdf(documentId);
-        String filename = UriUtils.encode(file.filename(), StandardCharsets.UTF_8);
+        String encoded = UriUtils.encode(file.filename(), StandardCharsets.UTF_8);
+        // ASCII fallback keeps browsers from falling back to the URL segment "pdf" / wrong extension.
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + filename)
+            .header(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"spatialization-analysis-report.pdf\"; filename*=UTF-8''" + encoded)
             .body(file.content());
     }
 }

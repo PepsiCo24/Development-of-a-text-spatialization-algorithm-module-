@@ -42,4 +42,34 @@ export async function downloadExport(documentId:number,format:string,dataset:str
 export async function restoreDemoData():Promise<GeologicalDocument>{const r=await http.post('/admin/demo-data/restore');return r.data.data}
 export async function pushToOneMap(documentId:number):Promise<{status:string;message:string;filename:string;bytes:number}>{const r=await http.post('/admin/one-map/push',undefined,{params:{documentId}});return r.data.data}
 export async function getAnalysisReport(documentId:number):Promise<AnalysisReport>{const r=await http.get(`/reports/${documentId}`);return r.data.data}
-export async function downloadAnalysisReport(documentId:number):Promise<void>{const r=await http.get(`/reports/${documentId}/pdf`,{responseType:'blob',timeout:120000});const disposition=String(r.headers['content-disposition']||'');const match=disposition.match(/filename\*=UTF-8''([^;]+)/);const filename=match?decodeURIComponent(match[1]):'地质文本空间化分析报告.pdf';const url=URL.createObjectURL(r.data);const link=document.createElement('a');link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url)}
+export async function downloadAnalysisReport(documentId:number):Promise<void>{
+  const response=await http.get(`/reports/${documentId}/pdf`,{responseType:'blob',timeout:120000})
+  const raw=response.data as Blob
+  const contentType=String(response.headers['content-type']||raw.type||'')
+  if(contentType.includes('application/json')||contentType.includes('text/json')){
+    const payload=JSON.parse(await raw.text()) as {message?:string}
+    throw new Error(payload.message||'分析报告 PDF 生成失败')
+  }
+  const headerBytes=new Uint8Array(await raw.slice(0,5).arrayBuffer())
+  const magic=String.fromCharCode(...headerBytes)
+  if(magic!=='%PDF-'){
+    const preview=await raw.slice(0,120).text()
+    if(preview.trim().startsWith('{')){
+      const payload=JSON.parse(await raw.text()) as {message?:string}
+      throw new Error(payload.message||'分析报告 PDF 生成失败')
+    }
+    throw new Error('服务未返回有效 PDF（请确认点击的是“下载 PDF”，而非成果 Excel 导出）')
+  }
+  const disposition=String(response.headers['content-disposition']||'')
+  const utfMatch=disposition.match(/filename\*=UTF-8''([^;]+)/i)
+  const asciiMatch=disposition.match(/filename="([^"]+)"/i)
+  let filename=utfMatch?decodeURIComponent(utfMatch[1]):(asciiMatch?.[1]||'地质文本空间化分析报告.pdf')
+  if(!/\.pdf$/i.test(filename))filename=`${filename.replace(/\.[^.]+$/,'')||'地质文本空间化分析报告'}.pdf`
+  const blob=new Blob([raw],{type:'application/pdf'})
+  const url=URL.createObjectURL(blob)
+  const link=document.createElement('a')
+  link.href=url
+  link.download=filename
+  link.click()
+  URL.revokeObjectURL(url)
+}

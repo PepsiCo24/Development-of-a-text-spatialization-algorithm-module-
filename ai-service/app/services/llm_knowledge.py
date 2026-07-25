@@ -11,6 +11,8 @@ from app.services.llm_entities import GeologicalEntityExtractor, LlmExtractionEr
 
 ATTRIBUTE_TYPES = {"AGE", "THICKNESS", "SCALE", "GRADE", "LITHOLOGY"}
 RELATION_TYPES = {"LOCATED_IN", "OCCURS_IN", "INTRUDES", "CONTACTS", "CONTROLS", "CONTAINS"}
+ATTRIBUTE_ENTITY_TYPES = {"GEOLOGICAL_AGE", "THICKNESS", "GRADE", "LITHOLOGY"}
+SKIP_ONLY_ENTITY_TYPES = {"COORDINATE", "DIP_DIRECTION", "DIP_ANGLE"}
 SYSTEM_PROMPT = """你是地质知识抽取专家。仅根据给定原文和实体清单抽取属性与实体关系，不得虚构实体或证据。
 属性类型仅允许 AGE(年代)、THICKNESS(厚度)、SCALE(规模)、GRADE(品位)、LITHOLOGY(岩性)。
 关系类型仅允许 LOCATED_IN(位于)、OCCURS_IN(赋存于)、INTRUDES(侵入)、CONTACTS(接触)、CONTROLS(控制)、CONTAINS(包含)。
@@ -22,7 +24,7 @@ class GeologicalKnowledgeExtractor:
     def __init__(self, settings: Settings | None = None, client: httpx.Client | None = None) -> None:
         self.settings = settings or get_settings()
         self.client = client or httpx.Client(
-            timeout=min(self.settings.llm_timeout_seconds, 15.0),
+            timeout=min(self.settings.llm_timeout_seconds, self.settings.llm_knowledge_timeout_seconds),
             trust_env=self.settings.llm_trust_env_proxy,
         )
         self.provider_resolver = GeologicalEntityExtractor(self.settings, self.client)
@@ -31,30 +33,74 @@ class GeologicalKnowledgeExtractor:
         provider = self.provider_resolver.resolve_provider(provider_name or self.settings.llm_default_provider)
         attributes: list[ExtractedAttribute] = []
         relations: list[ExtractedRelation] = []
-        batches = self._batches(chunks)
-        workers = max(1, min(self.settings.llm_parallel_workers, len(batches)))
-        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="knowledge-extract") as pool:
-            batch_results = list(pool.map(lambda batch: self._extract_batch(provider, batch), batches))
-        for batch_attributes, batch_relations in batch_results:
-            attributes.extend(batch_attributes)
-            relations.extend(batch_relations)
+        llm_chunks: list[KnowledgeChunk] = []
+
+        for chunk in chunks:
+            if self._should_skip_chunk(chunk):
+                continue
+            fallback_attributes, fallback_relations = self._evidence_fallback(chunk)
+            if self._fast_path_sufficient(chunk, fallback_attributes, fallback_relations):
+                attributes.extend(fallback_attributes)
+                relations.extend(fallback_relations)
+            else:
+                llm_chunks.append(chunk)
+
+        if llm_chunks:
+            batches = self._batches(llm_chunks)
+            workers = max(1, min(self.settings.llm_parallel_workers, len(batches)))
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="knowledge-extract") as pool:
+                batch_results = list(pool.map(lambda batch: self._extract_batch(provider, batch), batches))
+            for batch_attributes, batch_relations in batch_results:
+                attributes.extend(batch_attributes)
+                relations.extend(batch_relations)
+
         self._recalibrate_uniform_attribute_confidence(attributes, chunks)
         attribute_map = {(a.entity_id, a.attribute_type, a.original_value, a.page): a for a in attributes}
         relation_map = {(r.source_entity_id, r.target_entity_id, r.relation_type, r.page): r for r in relations}
         return provider, list(attribute_map.values()), list(relation_map.values())
 
+    @staticmethod
+    def _should_skip_chunk(chunk: KnowledgeChunk) -> bool:
+        if not chunk.entities:
+            return True
+        types = {entity.entity_type for entity in chunk.entities}
+        return types.issubset(SKIP_ONLY_ENTITY_TYPES)
+
+    def _fast_path_sufficient(
+        self,
+        chunk: KnowledgeChunk,
+        attributes: list[ExtractedAttribute],
+        relations: list[ExtractedRelation],
+    ) -> bool:
+        """Skip remote LLM when local evidence already covers typed attributes and relation cues."""
+        if not self.settings.llm_knowledge_fast_path:
+            return False
+        if len(chunk.content) > self.settings.llm_knowledge_fast_path_max_chars:
+            return False
+        attribute_entities = [entity for entity in chunk.entities if entity.entity_type in ATTRIBUTE_ENTITY_TYPES]
+        if not attribute_entities:
+            # Rock/ore names may still need LLM for implicit AGE etc.; only skip empty signal chunks.
+            return False
+        covered_attribute_ids = {item.entity_id for item in attributes}
+        attribute_ready = all(entity.entity_id in covered_attribute_ids for entity in attribute_entities)
+        relation_cues = any(token in chunk.content for token in ("侵入", "位于", "赋存", "接触", "控制", "包含"))
+        relation_ready = (not relation_cues) or bool(relations)
+        return attribute_ready and relation_ready
+
     def _batches(self, chunks: list[KnowledgeChunk]) -> list[list[KnowledgeChunk]]:
         batches: list[list[KnowledgeChunk]] = []
         current: list[KnowledgeChunk] = []
         current_chars = 0
+        chunk_limit = max(self.settings.llm_batch_chunk_limit, self.settings.llm_knowledge_batch_chunk_limit)
+        char_limit = max(self.settings.llm_batch_char_limit, self.settings.llm_knowledge_batch_char_limit)
         for chunk in chunks:
-            if current and (len(current) >= self.settings.llm_batch_chunk_limit
-                            or current_chars + len(chunk.content) > self.settings.llm_batch_char_limit):
+            content_len = min(len(chunk.content), 1600)
+            if current and (len(current) >= chunk_limit or current_chars + content_len > char_limit):
                 batches.append(current)
                 current = []
                 current_chars = 0
             current.append(chunk)
-            current_chars += len(chunk.content)
+            current_chars += content_len
         if current:
             batches.append(current)
         return batches
@@ -91,27 +137,47 @@ class GeologicalKnowledgeExtractor:
         return self._call_batch(provider, [chunk])
 
     def _call_batch(self, provider: ProviderConfig, chunks: list[KnowledgeChunk]) -> Any:
-        source = "\n\n".join(
-            f"### chunkId={chunk.chunk_id} pages={chunk.page_start}-{chunk.page_end}\n"
-            f"实体清单：{json.dumps([item.model_dump(by_alias=True) for item in chunk.entities], ensure_ascii=False)}\n"
-            f"原文：{chunk.content}"
-            for chunk in chunks
-        )
+        source = "\n\n".join(self._compact_chunk_prompt(chunk) for chunk in chunks)
         request = {
-            "model": provider.model, "temperature": min(provider.temperature, .1),
-            "max_tokens": min(self.settings.llm_max_tokens, 2048), "response_format": {"type": "json_object"},
+            "model": provider.model,
+            "temperature": min(provider.temperature, 0.1),
+            "max_tokens": min(self.settings.llm_max_tokens, self.settings.llm_knowledge_max_tokens),
+            "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": self.provider_resolver._system_prompt(provider, SYSTEM_PROMPT)},
-                {"role": "user", "content": f"请一次完成以下 {len(chunks)} 个文本块的属性和关系抽取；允许识别跨文本块关系，证据必须来自所给原文：\n{source}"},
+                {"role": "user", "content": f"抽取以下 {len(chunks)} 个文本块的属性与关系；可跨块关联，证据必须来自原文：\n{source}"},
             ],
         }
         request.update(self.provider_resolver._thinking_options(provider))
         try:
-            response = self.client.post(self.provider_resolver._chat_completions_url(provider.base_url), headers={"Authorization": f"Bearer {provider.api_key}"}, json=request)
+            response = self.client.post(
+                self.provider_resolver._chat_completions_url(provider.base_url),
+                headers={"Authorization": f"Bearer {provider.api_key}"},
+                json=request,
+            )
             response.raise_for_status()
-            return self.provider_resolver.decode_json(response.json()["choices"][0]["message"]["content"])
+            message = response.json()["choices"][0]["message"]
+            content = message.get("content") or ""
+            return self.provider_resolver.decode_json(content)
         except (httpx.HTTPError, KeyError, IndexError, TypeError, json.JSONDecodeError) as exception:
             raise LlmExtractionError(f"{provider.name} 属性关系抽取调用失败: {exception}") from exception
+
+    @staticmethod
+    def _compact_chunk_prompt(chunk: KnowledgeChunk) -> str:
+        entities = [
+            {"id": entity.entity_id, "name": entity.entity_name, "type": entity.entity_type}
+            for entity in chunk.entities
+            if entity.entity_type not in SKIP_ONLY_ENTITY_TYPES
+        ] or [
+            {"id": entity.entity_id, "name": entity.entity_name, "type": entity.entity_type}
+            for entity in chunk.entities
+        ]
+        content = chunk.content if len(chunk.content) <= 1600 else chunk.content[:1597] + "…"
+        return (
+            f"### chunkId={chunk.chunk_id} pages={chunk.page_start}-{chunk.page_end}\n"
+            f"实体：{json.dumps(entities, ensure_ascii=False, separators=(',', ':'))}\n"
+            f"原文：{content}"
+        )
 
     def _normalize_batch(self, payload: Any, chunks: list[KnowledgeChunk]) -> tuple[list[ExtractedAttribute], list[ExtractedRelation]]:
         valid_ids = {entity.entity_id for chunk in chunks for entity in chunk.entities}
@@ -123,23 +189,46 @@ class GeologicalKnowledgeExtractor:
         for row in payload.get("attributes", []):
             if not isinstance(row, dict):
                 continue
-            entity_id = int(row.get("entityId", -1)); attribute_type = str(row.get("attributeType", "")).upper()
-            value = str(row.get("value", "")).strip(); source = str(row.get("sourceText", "")).strip()
+            entity_id = int(row.get("entityId", -1))
+            attribute_type = str(row.get("attributeType", "")).upper()
+            value = str(row.get("value", "")).strip()
+            source = str(row.get("sourceText", "")).strip()
             chunk = self._evidence_chunk(chunks, source, entity_chunks.get(entity_id))
             if entity_id not in valid_ids or attribute_type not in ATTRIBUTE_TYPES or not value or not source or chunk is None:
                 continue
-            attributes.append(ExtractedAttribute(entity_id=entity_id, attribute_type=attribute_type, original_value=value,
-                confidence=self._confidence(row), source_text=source, page=self._page(row, chunk)))
+            attributes.append(ExtractedAttribute(
+                entity_id=entity_id,
+                attribute_type=attribute_type,
+                original_value=value,
+                confidence=self._confidence(row),
+                source_text=source,
+                page=self._page(row, chunk),
+            ))
         for row in payload.get("relations", []):
             if not isinstance(row, dict):
                 continue
-            source_id = int(row.get("sourceEntityId", -1)); target_id = int(row.get("targetEntityId", -1))
-            relation_type = str(row.get("relationType", "")).upper(); source = str(row.get("sourceText", "")).strip()
+            source_id = int(row.get("sourceEntityId", -1))
+            target_id = int(row.get("targetEntityId", -1))
+            relation_type = str(row.get("relationType", "")).upper()
+            source = str(row.get("sourceText", "")).strip()
             chunk = self._evidence_chunk(chunks, source, entity_chunks.get(source_id))
-            if source_id not in valid_ids or target_id not in valid_ids or source_id == target_id or relation_type not in RELATION_TYPES or not source or chunk is None:
+            if (
+                source_id not in valid_ids
+                or target_id not in valid_ids
+                or source_id == target_id
+                or relation_type not in RELATION_TYPES
+                or not source
+                or chunk is None
+            ):
                 continue
-            relations.append(ExtractedRelation(source_entity_id=source_id, target_entity_id=target_id, relation_type=relation_type,
-                confidence=self._confidence(row), source_text=source, page=self._page(row, chunk)))
+            relations.append(ExtractedRelation(
+                source_entity_id=source_id,
+                target_entity_id=target_id,
+                relation_type=relation_type,
+                confidence=self._confidence(row),
+                source_text=source,
+                page=self._page(row, chunk),
+            ))
         return attributes, relations
 
     @staticmethod
@@ -152,26 +241,7 @@ class GeologicalKnowledgeExtractor:
         return fallback
 
     def _normalize(self, payload: Any, chunk: KnowledgeChunk) -> tuple[list[ExtractedAttribute], list[ExtractedRelation]]:
-        valid_ids = {entity.entity_id for entity in chunk.entities}
-        attributes: list[ExtractedAttribute] = []
-        relations: list[ExtractedRelation] = []
-        if not isinstance(payload, dict):
-            return attributes, relations
-        for row in payload.get("attributes", []):
-            entity_id = int(row.get("entityId", -1)); attribute_type = str(row.get("attributeType", "")).upper()
-            value = str(row.get("value", "")).strip(); source = str(row.get("sourceText", "")).strip()
-            if entity_id not in valid_ids or attribute_type not in ATTRIBUTE_TYPES or not value or not source:
-                continue
-            attributes.append(ExtractedAttribute(entity_id=entity_id, attribute_type=attribute_type, original_value=value,
-                confidence=self._confidence(row), source_text=source, page=self._page(row, chunk)))
-        for row in payload.get("relations", []):
-            source_id = int(row.get("sourceEntityId", -1)); target_id = int(row.get("targetEntityId", -1))
-            relation_type = str(row.get("relationType", "")).upper(); source = str(row.get("sourceText", "")).strip()
-            if source_id not in valid_ids or target_id not in valid_ids or source_id == target_id or relation_type not in RELATION_TYPES or not source:
-                continue
-            relations.append(ExtractedRelation(source_entity_id=source_id, target_entity_id=target_id, relation_type=relation_type,
-                confidence=self._confidence(row), source_text=source, page=self._page(row, chunk)))
-        return attributes, relations
+        return self._normalize_batch(payload, [chunk])
 
     @staticmethod
     def _confidence(row: dict[str, Any]) -> float:
@@ -220,12 +290,32 @@ class GeologicalKnowledgeExtractor:
                         ))
             if "位于" in sentence:
                 places = [by_name[name] for name in names if by_name[name].entity_type == "PLACE"]
-                subjects = [entity for entity in chunk.entities if entity.entity_type == "ROCK_BODY"]
+                subjects = [entity for entity in chunk.entities if entity.entity_type in {"ROCK_BODY", "ORE_BODY", "FAULT", "MINERALIZATION_ZONE"}]
                 for subject in subjects[:1]:
                     for place in places:
                         relations.append(ExtractedRelation(
                             source_entity_id=subject.entity_id, target_entity_id=place.entity_id,
                             relation_type="LOCATED_IN", confidence=0.82,
+                            source_text=sentence.strip(), page=chunk.page_start,
+                        ))
+            if "赋存" in sentence and len(names) >= 2:
+                hosts = [by_name[name] for name in names if by_name[name].entity_type in {"STRATUM", "ROCK_BODY", "LITHOLOGY"}]
+                ores = [by_name[name] for name in names if by_name[name].entity_type in {"ORE_BODY", "MINERAL", "MINERALIZATION_ZONE"}]
+                for ore in ores[:1]:
+                    for host in hosts[:1]:
+                        relations.append(ExtractedRelation(
+                            source_entity_id=ore.entity_id, target_entity_id=host.entity_id,
+                            relation_type="OCCURS_IN", confidence=0.84,
+                            source_text=sentence.strip(), page=chunk.page_start,
+                        ))
+            if "控制" in sentence and len(names) >= 2:
+                controllers = [by_name[name] for name in names if by_name[name].entity_type == "FAULT"]
+                targets = [by_name[name] for name in names if by_name[name].entity_type in {"ORE_BODY", "MINERALIZATION_ZONE"}]
+                for controller in controllers:
+                    for target in targets:
+                        relations.append(ExtractedRelation(
+                            source_entity_id=controller.entity_id, target_entity_id=target.entity_id,
+                            relation_type="CONTROLS", confidence=0.88,
                             source_text=sentence.strip(), page=chunk.page_start,
                         ))
         return attributes, relations
