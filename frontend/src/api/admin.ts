@@ -14,7 +14,31 @@ export async function listTasks():Promise<GeologicalDocument[]>{const r=await ht
 export async function listLogs(module=''):Promise<SystemLog[]>{const r=await http.get('/admin/logs',{params:{module}});return r.data.data}
 export async function listLlmConfigs():Promise<LlmConfig[]>{const r=await http.get('/admin/llm-configs');return r.data.data}
 export async function saveLlmConfig(input:{provider:string;baseUrl:string;modelName:string;apiKey?:string;temperature:number;promptTemplate?:string;enabled:boolean}):Promise<LlmConfig>{const r=await http.put('/admin/llm-configs',input,{timeout:30000});return r.data.data}
-export async function downloadExport(documentId:number,format:string,dataset:string):Promise<void>{const r=await http.get('/exports',{params:{documentId,format,dataset},responseType:'blob',timeout:120000});const disposition=String(r.headers['content-disposition']||'');const match=disposition.match(/filename\*=UTF-8''([^;]+)/);const filename=match?decodeURIComponent(match[1]):`geotext-export.${format}`;const url=URL.createObjectURL(r.data);const link=document.createElement('a');link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url)}
+export async function downloadExport(documentId:number,format:string,dataset:string):Promise<void>{
+  const response=await http.get('/exports',{params:{documentId,format,dataset},responseType:'blob',timeout:120000})
+  const blob=response.data as Blob
+  const contentType=String(response.headers['content-type']||blob.type||'')
+  if(contentType.includes('application/json')||contentType.includes('text/json')){
+    const payload=JSON.parse(await blob.text()) as {message?:string}
+    throw new Error(payload.message||'导出失败')
+  }
+  if(blob.size<64){
+    const preview=await blob.slice(0,64).text()
+    if(preview.trim().startsWith('{')){
+      const payload=JSON.parse(await blob.text()) as {message?:string}
+      throw new Error(payload.message||'导出失败')
+    }
+  }
+  const disposition=String(response.headers['content-disposition']||'')
+  const match=disposition.match(/filename\*=UTF-8''([^;]+)/)
+  const filename=match?decodeURIComponent(match[1]):`geotext-export.${format}`
+  const url=URL.createObjectURL(blob)
+  const link=document.createElement('a')
+  link.href=url
+  link.download=filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
 export async function restoreDemoData():Promise<GeologicalDocument>{const r=await http.post('/admin/demo-data/restore');return r.data.data}
 export async function pushToOneMap(documentId:number):Promise<{status:string;message:string;filename:string;bytes:number}>{const r=await http.post('/admin/one-map/push',undefined,{params:{documentId}});return r.data.data}
 export async function getAnalysisReport(documentId:number):Promise<AnalysisReport>{const r=await http.get(`/reports/${documentId}`);return r.data.data}

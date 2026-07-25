@@ -10,7 +10,7 @@ http.interceptors.request.use((config) => {
 
 http.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401 && !String(error.config?.url ?? '').startsWith('/auth/')) {
       localStorage.removeItem('geotext-token')
       localStorage.removeItem('geotext-profile')
@@ -20,7 +20,16 @@ http.interceptors.response.use(
       }
       return Promise.reject(new Error('登录状态已失效，请重新登录'))
     }
-    return Promise.reject(new Error(error.response?.data?.message ?? error.message ?? '网络请求失败'))
+    const data = error.response?.data
+    if (typeof Blob !== 'undefined' && data instanceof Blob) {
+      try {
+        const payload = JSON.parse(await data.text()) as { message?: string }
+        return Promise.reject(new Error(payload.message || '请求失败'))
+      } catch {
+        return Promise.reject(new Error(error.message || '网络请求失败'))
+      }
+    }
+    return Promise.reject(new Error(data?.message ?? error.message ?? '网络请求失败'))
   },
 )
 

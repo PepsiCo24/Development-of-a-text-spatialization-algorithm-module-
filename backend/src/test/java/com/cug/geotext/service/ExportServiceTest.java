@@ -25,4 +25,15 @@ class ExportServiceTest {
         try(var parsed=WorkbookFactory.create(new ByteArrayInputStream(workbook.content()))){assertThat(parsed.getNumberOfSheets()).isEqualTo(4);assertThat(parsed.getSheet("实体").getRow(1).getCell(1).getStringCellValue()).isEqualTo("北东向断裂");}
         assertThat(new String(geojson.content(),java.nio.charset.StandardCharsets.UTF_8)).contains("FeatureCollection","LineString","北东向断裂");
     }
+
+    @Test
+    void rejectsEmptyDocumentExports(){
+        DocumentService documents=mock(DocumentService.class);GeologicalEntityService entities=mock(GeologicalEntityService.class);KnowledgePersistenceService knowledge=mock(KnowledgePersistenceService.class);SpatialObjectService spatial=mock(SpatialObjectService.class);
+        GeologicalDocument document=new GeologicalDocument();document.setId(5L);document.setName("空资料");when(documents.get(5L)).thenReturn(document);
+        when(entities.list(5L)).thenReturn(List.of());when(knowledge.attributes(5L)).thenReturn(List.of());when(knowledge.relations(5L)).thenReturn(List.of());when(spatial.list(5L)).thenReturn(List.of());
+        ExportService service=new ExportService(documents,entities,knowledge,spatial,new ObjectMapper());
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->service.export(5L,"xlsx","entities"))
+            .isInstanceOf(com.cug.geotext.common.BusinessException.class)
+            .hasMessageContaining("尚无可导出成果");
+    }
 }
