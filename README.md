@@ -38,8 +38,7 @@ Phase 1–8 已全部实现：
 - Neo4j 地层、岩体、构造、矿体、矿种和地区节点，以及位于、包含、控制和侵入关系
 - 节点查询、1–3 层关系展开、最短路径查询和 ECharts Graph 交互可视化
 - `BAAI/bge-m3` 文档块 Embedding 与 Qdrant 向量索引
-- “向量检索 → Neo4j 上下文 → DeepSeek/Qwen”证据约束问答接口仍保留在后端/AI 服务中
-- 前端图谱页「地质演示问答」现为 **3 组写死问答**（不调用远程 LLM），便于无密钥演示：一号矿体赋存层位、闪长玢岩侵入关系、ZK001 钻孔主要信息
+- “向量检索 → Neo4j 上下文 → DeepSeek/Qwen”证据约束问答，回答包含实体、空间位置、资料和来源段落
 - Excel 多工作表、CSV、JSON 与 GeoJSON 成果导出
 - 结构化空间化分析报告在线预览与中文 PDF 导出（`/api/reports/{id}/pdf`，与成果 Excel 导出相互独立）
 - 用户新增/编辑/启停/删除、全流程任务监控和 AI 调用审计日志
@@ -49,15 +48,6 @@ Phase 1–8 已全部实现：
 
 当前系统版本为 `v1.0.0`。
 
-## 演示问答（前端写死）
-
-图谱页面提供以下 3 组固定问答，点击即可查看答案、相关实体、空间位置与来源段落：
-
-1. 铜绿山矿段一号矿体主要赋存在什么地层？
-2. 闪长玢岩与大冶组之间是什么地质关系？
-3. 大冶矿区 ZK001 钻孔记录包含哪些主要地质信息？
-
-说明：这是答辩/演示用固定数据，不依赖 `DEEPSEEK_API_KEY` / `QWEN_API_KEY`。实体识别、知识抽取等流水线任务如需真实 LLM，请仅在本机环境变量或系统管理「模型配置」中填写密钥，且不要写入仓库。
 
 ## 系统架构
 
@@ -151,7 +141,7 @@ PaddleOCR 与 PaddlePaddle 由 `requirements.txt` 安装，首次识别会下载
 
 Windows 若因项目目录过长导致 Paddle 安装失败，可将依赖安装到短路径：`python -m pip install --target "$env:USERPROFILE\.geotext-ai-packages" -r ai-service\requirements.txt`。`scripts/start-ai.ps1` 会自动加载该目录，并关闭当前 Windows CPU 环境中不兼容的 oneDNN OCR 路径。
 
-实体识别 / 知识抽取如需真实大模型，至少在本机配置一个模型服务密钥（**不要提交到 Git**）：
+实体识别至少配置一个模型服务密钥（**不要提交到 Git**）：
 
 ```powershell
 # 仅写入本机环境或 ai-service/.env（该文件已在 .gitignore 中）
@@ -160,7 +150,7 @@ $env:DEEPSEEK_API_KEY="your-deepseek-key"
 $env:QWEN_API_KEY="your-qwen-key"
 ```
 
-也可在系统管理「模型配置」中保存密钥；保存后密钥不会回显到前端。图谱页演示问答不依赖上述密钥。
+也可在系统管理「模型配置」中保存密钥；保存后密钥不会回显到前端。
 
 默认提供商由 `LLM_DEFAULT_PROVIDER=deepseek|qwen` 选择，也可在实体识别页面逐任务切换。API 地址、模型、温度、超时和最大输出长度均可通过 `.env.example` 中的变量覆盖。
 
@@ -191,13 +181,26 @@ pnpm install
 pnpm dev
 ```
 
-打开 `http://localhost:5173`，使用已配置的系统账号登录。首次部署后请及时修改初始管理员密码。
+打开 `http://localhost:5173`，使用已配置的系统账号登录（默认 `admin` / `admin123`）。首次部署后请及时修改初始管理员密码。演示前可用上方「演示前准备」脚本清空业务数据。
 
 若使用项目已准备好的本地运行环境，可一键启动全部服务并自动执行数据库迁移：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\.tools\start-all.ps1
 ```
+
+
+## 演示前准备
+
+正式演示前建议清空业务数据，使系统回到初始空库状态（保留用户账号与词典种子）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\reset-demo-environment.ps1 -Execute
+```
+
+该脚本会清空 PostgreSQL 中的资料/实体/属性/关系/空间/日志、删除已上传文件、清空 Neo4j 节点与 Qdrant 向量集合，并重新写入标准词典。演示时再登录系统管理页点击「恢复标准演示数据」，或运行 `scripts/import-demo-data.ps1` 导入 `demo-data/` 资料。
+
+默认登录账号：`admin` / `admin123`（首次部署后请修改密码）。模型密钥仅保存在本机 `ai-service/.env` 或系统「模型配置」中，切勿提交到 Git。
 
 ## 测试与构建
 
